@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company Aliases Editor</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa4b2; --accent:#4c8dff; --accent-2:#2f6fe0;
+    --danger:#ff5c5c; --danger-bg:#3a1d1d; --ok:#3ecf8e; --warn:#ffb454;
+    --chip:#232833;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f4f6fa; --panel:#ffffff; --panel-2:#f0f3f8; --border:#d9dee7;
+      --text:#1a1d23; --muted:#5b6472; --accent:#2f6fe0; --accent-2:#2559b8;
+      --danger:#d23b3b; --danger-bg:#fbe7e7; --ok:#1c9c66; --warn:#b9741a;
+      --chip:#eef1f6;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  header{
+    position:sticky; top:0; z-index:10; background:var(--panel);
+    border-bottom:1px solid var(--border); padding:12px 20px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  header h1{font-size:16px; margin:0; margin-right:auto}
+  header .file-name{color:var(--muted); font-size:12px; font-weight:400}
+  main{max-width:1000px; margin:0 auto; padding:20px}
+  button{
+    font:inherit; cursor:pointer; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--text); border-radius:8px;
+    padding:8px 14px; transition:.12s;
+  }
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.primary:hover{background:var(--accent-2)}
+  button.ghost{background:transparent}
+  button.small{padding:4px 9px; font-size:12px; border-radius:6px}
+  button.danger{color:var(--danger); border-color:transparent; background:transparent}
+  button.danger:hover{background:var(--danger-bg); border-color:var(--danger)}
+  .company{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    margin-bottom:16px; overflow:hidden;
+  }
+  .company-head{
+    display:flex; align-items:center; gap:10px; padding:12px 16px;
+    background:var(--panel-2); border-bottom:1px solid var(--border);
+  }
+  .company-head .title{font-weight:600; font-size:15px; margin-right:auto}
+  .company-body{padding:16px; display:grid; gap:16px}
+  .field label{display:block; color:var(--muted); font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+  input[type=text]{
+    width:100%; background:var(--bg); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:8px 10px; font:inherit;
+  }
+  input[type=text]:focus{outline:none; border-color:var(--accent)}
+  .list-row{display:flex; gap:8px; margin-bottom:6px; align-items:center}
+  .list-row input{flex:1}
+  .sa-row{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px; margin-bottom:6px}
+  .sa-head{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px;
+    color:var(--muted); font-size:11px; margin-bottom:4px; text-transform:uppercase}
+  .section-card{background:var(--panel-2); border:1px solid var(--border);
+    border-radius:10px; padding:12px}
+  .add-field-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    border-top:1px dashed var(--border); padding-top:12px}
+  select{font:inherit; background:var(--bg); color:var(--text);
+    border:1px solid var(--border); border-radius:8px; padding:7px 10px}
+  .status{font-size:13px; padding:6px 10px; border-radius:8px}
+  .status.ok{color:var(--ok)} .status.err{color:var(--danger)} .status.warn{color:var(--warn)}
+  .empty{
+    text-align:center; color:var(--muted); padding:60px 20px;
+    border:1px dashed var(--border); border-radius:12px; background:var(--panel);
+  }
+  .dirty-dot{width:8px; height:8px; border-radius:50%; background:var(--warn);
+    display:none}
+  .dirty .dirty-dot{display:inline-block}
+  details.raw{margin-top:24px}
+  details.raw pre{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:14px; overflow:auto; font:12px/1.5 ui-monospace,Consolas,monospace;
+    max-height:400px;
+  }
+  .warnbar{background:var(--danger-bg); color:var(--danger); padding:8px 14px;
+    border-radius:8px; margin-bottom:16px; font-size:13px; display:none}
+  .hint{color:var(--muted); font-size:12px; margin:4px 0 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Company Aliases Editor <span class="dirty-dot" id="dirtyDot" title="Unsaved changes"></span></h1>
+  <span class="file-name" id="fileName">no file loaded</span>
+  <span class="status" id="status"></span>
+  <button id="openBtn">Open JSON…</button>
+  <button id="reloadBtn" class="ghost" title="Reload from disk">↻</button>
+  <button id="addCompanyBtn">+ Company</button>
+  <button id="saveBtn" class="primary">Save</button>
+</header>
+
+<main>
+  <div class="warnbar" id="warnbar"></div>
+  <div id="companies"></div>
+  <div class="empty" id="emptyState">
+    <p><strong>No file loaded.</strong></p>
+    <p>Click <em>Open JSON…</em> and choose <code>company_aliases.json</code>.</p>
+  </div>
+
+  <details class="raw" id="rawWrap" style="display:none">
+    <summary>View raw JSON</summary>
+    <pre id="rawJson"></pre>
+  </details>
+</main>
+
+<script>
+// ---- schema definition ---------------------------------------------------
+const SCALAR_FIELDS = [
+  {key:'id',         label:'ID',              ph:'streetcars_manchester'},
+  {key:'companyName',label:'Company name',    ph:'Streetcars Manchester Limited'},
+  {key:'xeroEmail',  label:'Xero bills email',ph:'bills.xxxx@xerofiles.com'},
+];
+const LIST_FIELDS = [
+  {key:'names',           label:'Company name aliases', always:true, ph:'street cars manchester ltd'},
+  {key:'senderRules',     label:'Sender rules (domains)', always:true, ph:'example.co.uk'},
+  {key:'vatNumbers',      label:'VAT numbers', ph:'GB123456789'},
+  {key:'companyNumbers',  label:'Company reg numbers', ph:'01234567'},
+  {key:'postcodes',       label:'Postcodes', ph:'M1 1AA'},
+  {key:'recipientAliases',label:'Recipient email aliases', ph:'goodwins@yourdomain.co.uk'},
+  {key:'vehicleRegs',     label:'Vehicle registrations', ph:'AB12 CDE'},
+];
+const LIST_LABEL = Object.fromEntries(LIST_FIELDS.map(f=>[f.key,f.label]));
+
+// ---- state ---------------------------------------------------------------
+const state = { data:{companies:[]}, dirty:false };
+let fileHandle = null;
+const supportsFS = 'showOpenFilePicker' in window;
+
+const $ = s=>document.querySelector(s);
+const companiesEl = $('#companies');
+
+function markDirty(){ state.dirty=true; document.body.classList.add('dirty'); refreshRaw(); }
+function clearDirty(){ state.dirty=false; document.body.classList.remove('dirty'); }
+function setStatus(msg,kind=''){ const s=$('#status'); s.textContent=msg; s.className='status '+kind;
+  if(msg) setTimeout(()=>{ if(s.textContent===msg){s.textContent='';s.className='status';} },4000); }
+
+// ---- open / load ---------------------------------------------------------
+async function openFile(){
+  if(!supportsFS){ pickViaInput(); return; }
+  try{
+    const [h] = await window.showOpenFilePicker({
+      types:[{description:'JSON',accept:{'application/json':['.json']}}]
+    });
+    fileHandle = h;
+    const f = await h.getFile();
+    loadText(await f.text(), f.name);
+  }catch(e){
+    if(e.name==='AbortError') return;           // user cancelled — do nothing
+    // File System Access API rejected (common on file:// origins) → fall back
+    fileHandle=null;
+    setStatus('Using basic picker (save will download)','warn');
+    pickViaInput();
+  }
+}
+function pickViaInput(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=()=>loadText(r.result,f.name); r.readAsText(f); };
+  inp.click();
+}
+function loadText(text,name){
+  try{
+    const parsed=JSON.parse(text);
+    if(!parsed || !Array.isArray(parsed.companies))
+      throw new Error('Expected an object with a "companies" array');
+    state.data=parsed;
+    $('#fileName').textContent=name||'company_aliases.json';
+    clearDirty(); render();
+    setStatus('Loaded '+parsed.companies.length+' companies','ok');
+  }catch(e){ setStatus('Invalid JSON: '+e.message,'err'); }
+}
+async function reload(){
+  if(fileHandle){ const f=await fileHandle.getFile(); loadText(await f.text(),f.name); }
+  else setStatus('Nothing to reload — open a file first','warn');
+}
+
+// try auto-loading the sibling file when served over http(s)
+async function tryAutoLoad(){
+  if(location.protocol==='file:') return;
+  try{
+    const r=await fetch('../company_aliases.json',{cache:'no-store'});
+    if(r.ok) loadText(await r.text(),'company_aliases.json (served)');
+  }catch(_){}
+}
+
+// ---- save ----------------------------------------------------------------
+function serialize(){ return JSON.stringify(state.data,null,2)+'\n'; }
+async function save(){
+  const dup=duplicateIds();
+  if(dup.length && !confirm('Duplicate IDs: '+dup.join(', ')+'\nSave anyway?')) return;
+  const text=serialize();
+  if(!supportsFS){ download(text); clearDirty(); setStatus('Downloaded JSON','ok'); return; }
+  try{
+    if(!fileHandle){
+      fileHandle=await window.showSaveFilePicker({
+        suggestedName:'company_aliases.json',
+        types:[{description:'JSON',accept:{'application/json':['.json']}}]
+      });
+    }
+    const perm=await fileHandle.requestPermission({mode:'readwrite'});
+    if(perm!=='granted') throw new Error('write permission denied');
+    const w=await fileHandle.createWritable();
+    await w.write(text); await w.close();
+    clearDirty(); setStatus('Saved to '+fileHandle.name,'ok');
+  }catch(e){
+    if(e.name==='AbortError') return;            // user cancelled the save dialog
+    // in-place save unavailable (e.g. file:// origin) → download instead
+    download(text); clearDirty();
+    setStatus('Saved as download (in-place write unavailable)','warn');
+  }
+}
+function download(text){
+  const blob=new Blob([text],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='company_aliases.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ---- helpers -------------------------------------------------------------
+function duplicateIds(){
+  const seen={},dup=[];
+  for(const c of state.data.companies){ const id=(c.id||'').trim(); if(!id) continue;
+    if(seen[id]) dup.push(id); seen[id]=true; }
+  return [...new Set(dup)];
+}
+function refreshWarn(){
+  const dup=duplicateIds(); const bar=$('#warnbar');
+  if(dup.length){ bar.style.display='block'; bar.textContent='⚠ Duplicate IDs: '+dup.join(', '); }
+  else bar.style.display='none';
+}
+function refreshRaw(){
+  if($('#rawWrap').open) $('#rawJson').textContent=serialize();
+}
+function esc(s){ return (s??'').toString()
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ---- render --------------------------------------------------------------
+function render(){
+  const cs=state.data.companies;
+  $('#emptyState').style.display=cs.length?'none':'block';
+  $('#rawWrap').style.display=cs.length?'block':'none';
+  companiesEl.innerHTML=cs.map((c,i)=>companyHtml(c,i)).join('');
+  refreshWarn(); refreshRaw();
+}
+
+function listFieldHtml(c,ci,f){
+  const arr=Array.isArray(c[f.key])?c[f.key]:[];
+  const rows=arr.map((v,vi)=>`
+    <div class="list-row">
+      <input type="text" value="${esc(v)}" placeholder="${esc(f.ph||'')}"
+        data-act="list-edit" data-ci="${ci}" data-key="${f.key}" data-vi="${vi}">
+      <button class="danger small" data-act="list-del" data-ci="${ci}" data-key="${f.key}" data-vi="${vi}">✕</button>
+    </div>`).join('');
+  const removable = !f.always ? `<button class="danger small" data-act="field-del" data-ci="${ci}" data-key="${f.key}">remove field</button>` : '';
+  return `<div class="field">
+    <label>${f.label} ${removable}</label>
+    ${rows||'<p class="hint">none</p>'}
+    <button class="small ghost" data-act="list-add" data-ci="${ci}" data-key="${f.key}">+ add</button>
+  </div>`;
+}
+
+function supplierAccountsHtml(c,ci){
+  const obj=(c.supplierAccounts&&typeof c.supplierAccounts==='object')?c.supplierAccounts:null;
+  if(!obj) return '';
+  const entries=Object.entries(obj);
+  const rows=entries.map(([dom,vals],ri)=>{
+    const list=Array.isArray(vals)?vals.join(', '):esc(vals);
+    return `<div class="sa-row">
+      <input type="text" value="${esc(dom)}" placeholder="supplier.co.uk"
+        data-act="sa-dom" data-ci="${ci}" data-ri="${ri}">
+      <input type="text" value="${esc(list)}" placeholder="GW-88213, ACC-4471"
+        data-act="sa-vals" data-ci="${ci}" data-ri="${ri}">
+      <button class="danger small" data-act="sa-del" data-ci="${ci}" data-ri="${ri}">✕</button>
+    </div>`;
+  }).join('');
+  return `<div class="field">
+    <label>Supplier accounts
+      <button class="danger small" data-act="field-del" data-ci="${ci}" data-key="supplierAccounts">remove field</button>
+    </label>
+    <div class="section-card">
+      <div class="sa-head"><span>Supplier domain</span><span>Account numbers (comma-separated)</span><span></span></div>
+      ${rows||'<p class="hint">none</p>'}
+      <button class="small ghost" data-act="sa-add" data-ci="${ci}">+ add supplier</button>
+    </div>
+  </div>`;
+}
+
+function addFieldSelect(c,ci){
+  const opts=[];
+  for(const f of LIST_FIELDS) if(!f.always && !(f.key in c))
+    opts.push(`<option value="list:${f.key}">${f.label}</option>`);
+  if(!('supplierAccounts' in c)) opts.push(`<option value="sa">Supplier accounts</option>`);
+  if(!opts.length) return '';
+  return `<div class="add-field-row">
+    <span class="hint">Add optional field:</span>
+    <select data-act="field-add-sel" data-ci="${ci}">
+      <option value="">choose…</option>${opts.join('')}
+    </select>
+  </div>`;
+}
+
+function companyHtml(c,ci){
+  const scalars=SCALAR_FIELDS.map(f=>`
+    <div class="field">
+      <label>${f.label}</label>
+      <input type="text" value="${esc(c[f.key])}" placeholder="${esc(f.ph)}"
+        data-act="scalar" data-ci="${ci}" data-key="${f.key}">
+    </div>`).join('');
+  // list fields: always-present ones + any optional ones already in object
+  const lists=LIST_FIELDS
+    .filter(f=>f.always || (f.key in c))
+    .map(f=>listFieldHtml(c,ci,f)).join('');
+  const title=c.companyName||c.id||'(unnamed company)';
+  return `<div class="company">
+    <div class="company-head">
+      <span class="title">${esc(title)}</span>
+      <button class="danger small" data-act="company-del" data-ci="${ci}">Delete company</button>
+    </div>
+    <div class="company-body">
+      <div class="grid-2">${scalars}</div>
+      ${lists}
+      ${supplierAccountsHtml(c,ci)}
+      ${addFieldSelect(c,ci)}
+    </div>
+  </div>`;
+}
+
+// ---- event delegation ----------------------------------------------------
+// text edits: update state without re-render (keep focus)
+companiesEl.addEventListener('input',e=>{
+  const t=e.target, act=t.dataset.act; if(!act) return;
+  const ci=+t.dataset.ci, c=state.data.companies[ci];
+  if(act==='scalar'){ c[t.dataset.key]=t.value; markDirty();
+    if(t.dataset.key==='companyName'){ // live-update card title
+      const head=t.closest('.company').querySelector('.title');
+      head.textContent=t.value||c.id||'(unnamed company)';
+    }
+  }
+  else if(act==='list-edit'){ c[t.dataset.key][+t.dataset.vi]=t.value; markDirty(); }
+  else if(act==='sa-dom' || act==='sa-vals'){ rebuildSA(ci); markDirty(); }
+});
+
+// structural changes: mutate then re-render
+companiesEl.addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t) return;
+  const act=t.dataset.act; if(!act) return;
+  const ci=+t.dataset.ci; const c=state.data.companies[ci];
+  if(act==='company-del'){
+    if(confirm('Delete "'+(c.companyName||c.id||'this company')+'"?')){
+      state.data.companies.splice(ci,1); markDirty(); render(); }
+  }
+  else if(act==='list-add'){ (c[t.dataset.key] ||= []).push(''); markDirty(); render();
+    focusLast(t.dataset.ci,t.dataset.key); }
+  else if(act==='list-del'){ c[t.dataset.key].splice(+t.dataset.vi,1); markDirty(); render(); }
+  else if(act==='field-del'){ delete c[t.dataset.key]; markDirty(); render(); }
+  else if(act==='sa-add'){ (c.supplierAccounts ||= {})['']=[]; markDirty(); render(); }
+  else if(act==='sa-del'){
+    const keys=Object.keys(c.supplierAccounts); delete c.supplierAccounts[keys[+t.dataset.ri]];
+    markDirty(); render(); }
+});
+
+// add optional field via select
+companiesEl.addEventListener('change',e=>{
+  const t=e.target; if(t.dataset.act!=='field-add-sel'||!t.value) return;
+  const ci=+t.dataset.ci, c=state.data.companies[ci];
+  if(t.value==='sa'){ c.supplierAccounts={}; }
+  else if(t.value.startsWith('list:')){ c[t.value.slice(5)]=['']; }
+  markDirty(); render();
+});
+
+// rebuild supplierAccounts object from its rows (preserves order, handles dup keys)
+function rebuildSA(ci){
+  const card=companiesEl.querySelectorAll('.company')[ci];
+  const rows=card.querySelectorAll('.sa-row');
+  const obj={};
+  rows.forEach(r=>{
+    const dom=r.querySelector('[data-act=sa-dom]').value.trim();
+    const raw=r.querySelector('[data-act=sa-vals]').value;
+    const vals=raw.split(',').map(s=>s.trim()).filter(Boolean);
+    if(dom) obj[dom]=vals;
+  });
+  state.data.companies[ci].supplierAccounts=obj;
+}
+
+function focusLast(ci,key){
+  const card=companiesEl.querySelectorAll('.company')[ci];
+  const inputs=card.querySelectorAll(`[data-act=list-edit][data-key="${key}"]`);
+  if(inputs.length) inputs[inputs.length-1].focus();
+}
+
+// ---- add company ---------------------------------------------------------
+$('#addCompanyBtn').onclick=()=>{
+  state.data.companies.push({id:'',companyName:'',names:[''],senderRules:[''],xeroEmail:''});
+  markDirty(); render();
+  window.scrollTo(0,document.body.scrollHeight);
+};
+
+// ---- toolbar wiring ------------------------------------------------------
+$('#openBtn').onclick=openFile;
+$('#reloadBtn').onclick=reload;
+$('#saveBtn').onclick=save;
+$('#rawWrap').addEventListener('toggle',refreshRaw);
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); save(); }
+});
+window.addEventListener('beforeunload',e=>{ if(state.dirty){ e.preventDefault(); e.returnValue=''; } });
+
+tryAutoLoad();
+</script>
+</body>
+</html>

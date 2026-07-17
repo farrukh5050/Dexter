@@ -1,0 +1,92 @@
+{
+  "companies": [
+    {
+      "id": "streetcars_transportation",
+      "companyName": "Street Cars Transportation Limited",
+      "names": [
+        "street cars transportation limited",
+        "street cars transportation ltd",
+        "streetcars transportation limited",
+        "streetcars transportation ltd"
+      ],
+      "xeroEmail": "bills.o3xgx5.8ne9q81gahi9bdzt@xerofiles.com"
+    },
+    {
+      "id": "streetcars_manchester",
+      "companyName": "Streetcars Manchester Limited",
+      "names": [
+        "streetcars manchester limited",
+        "streetcars manchester ltd",
+        "street cars manchester limited",
+        "street cars manchester ltd"
+      ],
+      "xeroEmail": "bills.ol0jry.jphf02g4g4c7lgsi@xerofiles.com"
+    },
+    {
+      "id": "streetcars_accounts",
+      "companyName": "Streetcars Accounts Limited",
+      "names": [
+        "streetcars accounts limited",
+        "streetcars accounts ltd",
+        "street cars accounts limited",
+        "street cars accounts ltd"
+      ],
+      "xeroEmail": "bills.o2gf8b.770875msdxf9g4zu@xerofiles.com"
+    },
+    {
+      "id": "streetrax",
+      "companyName": "Streetrax Limited",
+      "names": [
+        "streetrax limited",
+        "streetrax ltd"
+      ],
+      "xeroEmail": "bills.o1dt37.bjtkqomqus5oid8i@xerofiles.com"
+    },
+    {
+      "id": "goodwins",
+      "companyName": "Goodwins",
+      "names": [
+        "goodwins",
+        "goodwins limited",
+        "goodwins ltd",
+        "goodwins cars",
+        "goodwins cars limited",
+        "goodwins cars ltd"
+      ],
+      "supplierAccounts": {
+        "sage.com": [
+          "1003443912"
+        ]
+      },
+      "xeroEmail": "bills.o7mz17.kid1otvd56u8royz@xerofiles.com"
+    },
+    {
+      "id": "new_moon",
+      "companyName": "New Moon",
+      "names": [
+        "new moon",
+        "new moon limited",
+        "new moon ltd"
+      ],
+      "xeroEmail": "bills.olhb97.734g6unh3kud7hlk@xerofiles.com"
+    },
+    {
+      "id": "streetcars_ground_transportation",
+      "companyName": "Streetcars Ground Transportation",
+      "names": [
+        "streetcars ground transportation",
+        "street cars ground transportation",
+        "streetcars ground transportation limited",
+        "streetcars ground transportation ltd",
+        "street cars ground transportation limited",
+        "street cars ground transportation ltd"
+      ],
+      "xeroEmail": "bills.oxj7t8.1ave5d09fm3b0l5p@xerofiles.com"
+    }
+  ],
+  "senderRules": {
+    "streetcars.co.uk": "new_moon",
+    "rackspace.co.uk": "streetcars_accounts",
+    "sendgrid.com": "streetcars_accounts"
+  }
+}

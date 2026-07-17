@@ -1,0 +1,5 @@
+.claude
+attachments
+node_modules
+.env
+uid.json

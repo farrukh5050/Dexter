@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.2",
+    "dotenv": "^17.4.2",
+    "imapflow": "^1.4.6",
+    "mailparser": "^3.9.14",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^6.1.200",
+    "tesseract.js": "^7.0.0"
+  },
+  "type": "module"
+}

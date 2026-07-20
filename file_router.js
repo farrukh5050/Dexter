@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { PDFParse } from 'pdf-parse';
 
 // load all company alias json
-const configUrl = new URL("./company_aliases.json", import.meta.url);
+const configUrl = new URL("./json_files/company_aliases.json", import.meta.url);
 const config = JSON.parse(await fs.readFile(configUrl, "utf-8"));
 
 // Build a map of sender email + which company this sender email to 
@@ -119,6 +119,17 @@ function findCompanyFromText(text) {
             }
         }
     }
+}
+
+
+// check to see if the email is for an invoice or a statement.
+function isStatement(text){
+
+}
+
+// detect if the customer is email sales invoice to discuss discrencies with us
+function isOwnInvoice(text){
+
 }
 
 function hasUsefulText(text) {

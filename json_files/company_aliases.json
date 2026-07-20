@@ -85,8 +85,97 @@
     }
   ],
   "senderRules": {
-    "streetcars.co.uk": "new_moon",
     "rackspace.co.uk": "streetcars_accounts",
     "sendgrid.com": "streetcars_accounts"
-  }
+  },
+  "documentRules": [
+    {
+      "name": "Ignore Statements",
+      "action": "ignore",
+      "matchThreshold": 1,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "statement"
+        },
+        {
+          "match": "contains",
+          "text": "statement date"
+        }
+      ]
+    },
+    {
+      "name": "Ignore Own Invoices",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "invoice payable to: street cars accounts"
+        },
+        {
+          "match": "contains",
+          "text": "14544028"
+        },
+        {
+          "match": "contains",
+          "text": "431214838"
+        },
+        {
+          "match": "contains",
+          "text": "bibby commercial finance limited"
+        },
+        {
+          "match": "contains",
+          "text": "72753528"
+        },
+        {
+          "match": "contains",
+          "text": "21827885"
+        },
+        {
+          "match": "contains",
+          "text": "21878307"
+        }
+      ]
+    },
+    {
+      "name": "Supplier Credit Note",
+      "action": "route",
+      "matchThreshold": 1,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "credit note"
+        },
+        {
+          "match": "contains",
+          "text": "credit memo"
+        }
+      ]
+    },
+    {
+      "name": "Supplier Invoice",
+      "action": "route",
+      "matchThreshold": 1,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "invoice"
+        },
+        {
+          "match": "contains",
+          "text": "invoice number"
+        },
+        {
+          "match": "contains",
+          "text": "tax invoice"
+        },
+        {
+          "match": "contains",
+          "text": "vat invoice"
+        }
+      ]
+    }
+  ]
 }

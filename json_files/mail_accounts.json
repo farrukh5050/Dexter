@@ -1,0 +1,28 @@
+{
+    "accounts": [
+        {
+            "name": "farakh",
+            "host": "secure.emailsrvr.com",
+            "port": 993,
+            "secure": true,
+            "userEnv": "IMAP_USER_FARAKH",
+            "passEnv": "IMAP_PASS_FARAKH"
+        },
+        {
+            "name": "mudassar",
+            "host": "secure.emailsrvr.com",
+            "port": 993,
+            "secure": true,
+            "userEnv": "IMAP_USER_MUDASSAR",
+            "passEnv": "IMAP_PASS_MUDASSAR"
+        },
+        {
+            "name": "ionos",
+            "host": "imap.ionos.co.uk",
+            "port": 993,
+            "secure": true,
+            "userEnv": "IMAP_USER_ACCOUNTS_GOODWINS",
+            "passEnv": "IMAP_PASS_ACCOUNTS_GOODWINS"
+        }
+    ]
+}

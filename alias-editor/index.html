@@ -6,22 +6,22 @@
 <title>Company Aliases Editor</title>
 <style>
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --border:#2a2f3a;
-    --text:#e6e9ef; --muted:#9aa4b2; --accent:#4c8dff; --accent-2:#2f6fe0;
-    --danger:#ff5c5c; --danger-bg:#3a1d1d; --ok:#3ecf8e; --warn:#ffb454;
-    --chip:#232833;
+    --bg:#1a1d24; --panel:#22262f; --panel-2:#2a2f39; --border:#363c48;
+    --text:#e4e7ee; --muted:#98a1b2; --accent:#8891d6; --accent-2:#7079c6;
+    --danger:#d98a98; --danger-bg:#3a2830; --ok:#5cbfa5; --warn:#d4af6a;
+    --chip:#2f3542;
   }
   @media (prefers-color-scheme: light){
     :root{
-      --bg:#f4f6fa; --panel:#ffffff; --panel-2:#f0f3f8; --border:#d9dee7;
-      --text:#1a1d23; --muted:#5b6472; --accent:#2f6fe0; --accent-2:#2559b8;
-      --danger:#d23b3b; --danger-bg:#fbe7e7; --ok:#1c9c66; --warn:#b9741a;
-      --chip:#eef1f6;
+      --bg:#f7f8fb; --panel:#ffffff; --panel-2:#f1f3f8; --border:#e2e6ee;
+      --text:#2c3340; --muted:#6b7484; --accent:#6b73c4; --accent-2:#565fb0;
+      --danger:#c96a7a; --danger-bg:#f7e7ea; --ok:#3f9e86; --warn:#b98b3f;
+      --chip:#eef1f7;
     }
   }
   *{box-sizing:border-box}
   body{
-    margin:0; background:var(--bg); color:var(--text);
+    margin:0; color:var(--text); background:var(--bg);
     font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
   header{
@@ -31,6 +31,14 @@
   }
   header h1{font-size:16px; margin:0; margin-right:auto}
   header .file-name{color:var(--muted); font-size:12px; font-weight:400}
+  .tabs{display:flex; gap:4px; padding:0 20px; background:var(--panel);
+    border-bottom:1px solid var(--border); position:sticky; top:53px; z-index:9}
+  .tabs button{border:none; background:transparent; color:var(--muted);
+    padding:10px 16px; border-bottom:2px solid transparent; border-radius:0}
+  .tabs button.active{color:var(--text); border-bottom-color:var(--accent)}
+  .tabs button:hover{color:var(--text)}
+  .tabs .count{font-size:11px; color:var(--muted); background:var(--chip);
+    border-radius:10px; padding:1px 7px; margin-left:6px}
   main{max-width:1000px; margin:0 auto; padding:20px}
   button{
     font:inherit; cursor:pointer; border:1px solid var(--border);
@@ -44,54 +52,53 @@
   button.small{padding:4px 9px; font-size:12px; border-radius:6px}
   button.danger{color:var(--danger); border-color:transparent; background:transparent}
   button.danger:hover{background:var(--danger-bg); border-color:var(--danger)}
-  .company{
+  .card{
     background:var(--panel); border:1px solid var(--border); border-radius:12px;
     margin-bottom:16px; overflow:hidden;
   }
-  .company-head{
+  .card-head{
     display:flex; align-items:center; gap:10px; padding:12px 16px;
     background:var(--panel-2); border-bottom:1px solid var(--border);
   }
-  .company-head .title{font-weight:600; font-size:15px; margin-right:auto}
-  .company-body{padding:16px; display:grid; gap:16px}
+  .card-head .title{font-weight:600; font-size:15px; margin-right:auto}
+  .card-body{padding:16px; display:grid; gap:16px}
   .field label{display:block; color:var(--muted); font-size:12px; font-weight:600;
     text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px}
   .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
-  @media(max-width:640px){.grid-2{grid-template-columns:1fr}}
-  input[type=text]{
+  .grid-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px}
+  @media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+  input[type=text],input[type=number],select{
     width:100%; background:var(--bg); border:1px solid var(--border);
     color:var(--text); border-radius:8px; padding:8px 10px; font:inherit;
   }
-  input[type=text]:focus{outline:none; border-color:var(--accent)}
+  input:focus,select:focus{outline:none; border-color:var(--accent)}
   .list-row{display:flex; gap:8px; margin-bottom:6px; align-items:center}
   .list-row input{flex:1}
-  .sa-row{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px; margin-bottom:6px}
-  .sa-head{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px;
+  .kv-row{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px; margin-bottom:6px}
+  .kv-head{display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px;
+    color:var(--muted); font-size:11px; margin-bottom:4px; text-transform:uppercase}
+  .rule-row{display:grid; grid-template-columns:150px 1fr auto; gap:8px; margin-bottom:6px}
+  .rule-head{display:grid; grid-template-columns:150px 1fr auto; gap:8px;
     color:var(--muted); font-size:11px; margin-bottom:4px; text-transform:uppercase}
   .section-card{background:var(--panel-2); border:1px solid var(--border);
     border-radius:10px; padding:12px}
   .add-field-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
     border-top:1px dashed var(--border); padding-top:12px}
-  select{font:inherit; background:var(--bg); color:var(--text);
-    border:1px solid var(--border); border-radius:8px; padding:7px 10px}
   .status{font-size:13px; padding:6px 10px; border-radius:8px}
   .status.ok{color:var(--ok)} .status.err{color:var(--danger)} .status.warn{color:var(--warn)}
-  .empty{
-    text-align:center; color:var(--muted); padding:60px 20px;
-    border:1px dashed var(--border); border-radius:12px; background:var(--panel);
-  }
-  .dirty-dot{width:8px; height:8px; border-radius:50%; background:var(--warn);
-    display:none}
+  .empty{text-align:center; color:var(--muted); padding:60px 20px;
+    border:1px dashed var(--border); border-radius:12px; background:var(--panel)}
+  .toolbar{display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap}
+  .toolbar .spacer{margin-left:auto}
+  .dirty-dot{width:8px; height:8px; border-radius:50%; background:var(--warn); display:none}
   .dirty .dirty-dot{display:inline-block}
   details.raw{margin-top:24px}
-  details.raw pre{
-    background:var(--panel); border:1px solid var(--border); border-radius:10px;
-    padding:14px; overflow:auto; font:12px/1.5 ui-monospace,Consolas,monospace;
-    max-height:400px;
-  }
+  details.raw pre{background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:14px; overflow:auto; font:12px/1.5 ui-monospace,Consolas,monospace; max-height:400px}
   .warnbar{background:var(--danger-bg); color:var(--danger); padding:8px 14px;
     border-radius:8px; margin-bottom:16px; font-size:13px; display:none}
   .hint{color:var(--muted); font-size:12px; margin:4px 0 0}
+  .tab-pane{display:none} .tab-pane.active{display:block}
 </style>
 </head>
 <body>
@@ -101,17 +108,26 @@
   <span class="status" id="status"></span>
   <button id="openBtn">Open JSON…</button>
   <button id="reloadBtn" class="ghost" title="Reload from disk">↻</button>
-  <button id="addCompanyBtn">+ Company</button>
   <button id="saveBtn" class="primary">Save</button>
 </header>
 
+<nav class="tabs" id="tabs">
+  <button data-tab="companies" class="active">Companies <span class="count" id="cnt-companies">0</span></button>
+  <button data-tab="senderRules">Sender Rules <span class="count" id="cnt-senderRules">0</span></button>
+  <button data-tab="documentRules">Document Rules <span class="count" id="cnt-documentRules">0</span></button>
+</nav>
+
 <main>
   <div class="warnbar" id="warnbar"></div>
-  <div id="companies"></div>
+
   <div class="empty" id="emptyState">
     <p><strong>No file loaded.</strong></p>
-    <p>Click <em>Open JSON…</em> and choose <code>company_aliases.json</code>.</p>
+    <p>Click <em>Open JSON…</em> and choose <code>json_files/company_aliases.json</code>.</p>
   </div>
+
+  <div id="pane-companies" class="tab-pane active"></div>
+  <div id="pane-senderRules" class="tab-pane"></div>
+  <div id="pane-documentRules" class="tab-pane"></div>
 
   <details class="raw" id="rawWrap" style="display:none">
     <summary>View raw JSON</summary>
@@ -120,7 +136,7 @@
 </main>
 
 <script>
-// ---- schema definition ---------------------------------------------------
+// ---- schema config -------------------------------------------------------
 const SCALAR_FIELDS = [
   {key:'id',         label:'ID',              ph:'streetcars_manchester'},
   {key:'companyName',label:'Company name',    ph:'Streetcars Manchester Limited'},
@@ -128,27 +144,29 @@ const SCALAR_FIELDS = [
 ];
 const LIST_FIELDS = [
   {key:'names',           label:'Company name aliases', always:true, ph:'street cars manchester ltd'},
-  {key:'senderRules',     label:'Sender rules (domains)', always:true, ph:'example.co.uk'},
   {key:'vatNumbers',      label:'VAT numbers', ph:'GB123456789'},
   {key:'companyNumbers',  label:'Company reg numbers', ph:'01234567'},
   {key:'postcodes',       label:'Postcodes', ph:'M1 1AA'},
   {key:'recipientAliases',label:'Recipient email aliases', ph:'goodwins@yourdomain.co.uk'},
   {key:'vehicleRegs',     label:'Vehicle registrations', ph:'AB12 CDE'},
 ];
-const LIST_LABEL = Object.fromEntries(LIST_FIELDS.map(f=>[f.key,f.label]));
+const MATCH_TYPES  = ['contains']; // only "contains" is implemented in file_router.js
+const ACTION_TYPES = ['route','ignore'];
+const AUTOLOAD_PATHS = ['../json_files/company_aliases.json','../company_aliases.json'];
 
 // ---- state ---------------------------------------------------------------
-const state = { data:{companies:[]}, dirty:false };
+const state = { data:blank(), dirty:false, tab:'companies' };
 let fileHandle = null;
 const supportsFS = 'showOpenFilePicker' in window;
-
 const $ = s=>document.querySelector(s);
-const companiesEl = $('#companies');
 
-function markDirty(){ state.dirty=true; document.body.classList.add('dirty'); refreshRaw(); }
+function blank(){ return {companies:[], senderRules:{}, documentRules:[]}; }
+function markDirty(){ state.dirty=true; document.body.classList.add('dirty'); refreshRaw(); updateCounts(); }
 function clearDirty(){ state.dirty=false; document.body.classList.remove('dirty'); }
 function setStatus(msg,kind=''){ const s=$('#status'); s.textContent=msg; s.className='status '+kind;
   if(msg) setTimeout(()=>{ if(s.textContent===msg){s.textContent='';s.className='status';} },4000); }
+function esc(s){ return (s??'').toString()
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ---- open / load ---------------------------------------------------------
 async function openFile(){
@@ -157,15 +175,10 @@ async function openFile(){
     const [h] = await window.showOpenFilePicker({
       types:[{description:'JSON',accept:{'application/json':['.json']}}]
     });
-    fileHandle = h;
-    const f = await h.getFile();
-    loadText(await f.text(), f.name);
+    fileHandle=h; const f=await h.getFile(); loadText(await f.text(),f.name);
   }catch(e){
-    if(e.name==='AbortError') return;           // user cancelled — do nothing
-    // File System Access API rejected (common on file:// origins) → fall back
-    fileHandle=null;
-    setStatus('Using basic picker (save will download)','warn');
-    pickViaInput();
+    if(e.name==='AbortError') return;
+    fileHandle=null; setStatus('Using basic picker (save will download)','warn'); pickViaInput();
   }
 }
 function pickViaInput(){
@@ -180,6 +193,8 @@ function loadText(text,name){
     const parsed=JSON.parse(text);
     if(!parsed || !Array.isArray(parsed.companies))
       throw new Error('Expected an object with a "companies" array');
+    parsed.senderRules = (parsed.senderRules && typeof parsed.senderRules==='object' && !Array.isArray(parsed.senderRules)) ? parsed.senderRules : {};
+    parsed.documentRules = Array.isArray(parsed.documentRules) ? parsed.documentRules : [];
     state.data=parsed;
     $('#fileName').textContent=name||'company_aliases.json';
     clearDirty(); render();
@@ -190,21 +205,20 @@ async function reload(){
   if(fileHandle){ const f=await fileHandle.getFile(); loadText(await f.text(),f.name); }
   else setStatus('Nothing to reload — open a file first','warn');
 }
-
-// try auto-loading the sibling file when served over http(s)
 async function tryAutoLoad(){
   if(location.protocol==='file:') return;
-  try{
-    const r=await fetch('../company_aliases.json',{cache:'no-store'});
-    if(r.ok) loadText(await r.text(),'company_aliases.json (served)');
-  }catch(_){}
+  for(const p of AUTOLOAD_PATHS){
+    try{ const r=await fetch(p,{cache:'no-store'});
+      if(r.ok){ loadText(await r.text(), p.split('/').pop()+' (served)'); return; }
+    }catch(_){}
+  }
 }
 
 // ---- save ----------------------------------------------------------------
 function serialize(){ return JSON.stringify(state.data,null,2)+'\n'; }
 async function save(){
   const dup=duplicateIds();
-  if(dup.length && !confirm('Duplicate IDs: '+dup.join(', ')+'\nSave anyway?')) return;
+  if(dup.length && !confirm('Duplicate company IDs: '+dup.join(', ')+'\nSave anyway?')) return;
   const text=serialize();
   if(!supportsFS){ download(text); clearDirty(); setStatus('Downloaded JSON','ok'); return; }
   try{
@@ -216,50 +230,66 @@ async function save(){
     }
     const perm=await fileHandle.requestPermission({mode:'readwrite'});
     if(perm!=='granted') throw new Error('write permission denied');
-    const w=await fileHandle.createWritable();
-    await w.write(text); await w.close();
+    const w=await fileHandle.createWritable(); await w.write(text); await w.close();
     clearDirty(); setStatus('Saved to '+fileHandle.name,'ok');
   }catch(e){
-    if(e.name==='AbortError') return;            // user cancelled the save dialog
-    // in-place save unavailable (e.g. file:// origin) → download instead
-    download(text); clearDirty();
-    setStatus('Saved as download (in-place write unavailable)','warn');
+    if(e.name==='AbortError') return;
+    download(text); clearDirty(); setStatus('Saved as download (in-place write unavailable)','warn');
   }
 }
 function download(text){
   const blob=new Blob([text],{type:'application/json'});
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='company_aliases.json';
-  a.click(); URL.revokeObjectURL(a.href);
+  a.href=URL.createObjectURL(blob); a.download='company_aliases.json'; a.click(); URL.revokeObjectURL(a.href);
 }
 
 // ---- helpers -------------------------------------------------------------
+function companyIds(){ return state.data.companies.map(c=>(c.id||'').trim()).filter(Boolean); }
 function duplicateIds(){
   const seen={},dup=[];
   for(const c of state.data.companies){ const id=(c.id||'').trim(); if(!id) continue;
     if(seen[id]) dup.push(id); seen[id]=true; }
   return [...new Set(dup)];
 }
+function selectHtml(options, current, attrs){
+  const opts=[...options];
+  if(current && !opts.includes(current)) opts.unshift(current);
+  return `<select ${attrs}>${opts.map(o=>
+    `<option value="${esc(o)}" ${o===current?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+}
+function updateCounts(){
+  $('#cnt-companies').textContent=state.data.companies.length;
+  $('#cnt-senderRules').textContent=Object.keys(state.data.senderRules||{}).length;
+  $('#cnt-documentRules').textContent=(state.data.documentRules||[]).length;
+}
 function refreshWarn(){
   const dup=duplicateIds(); const bar=$('#warnbar');
-  if(dup.length){ bar.style.display='block'; bar.textContent='⚠ Duplicate IDs: '+dup.join(', '); }
+  const badRefs=Object.entries(state.data.senderRules||{})
+    .filter(([d,id])=>id && !companyIds().includes(id)).map(([d,id])=>`${d}→${id}`);
+  const msgs=[];
+  if(dup.length) msgs.push('Duplicate company IDs: '+dup.join(', '));
+  if(badRefs.length) msgs.push('Sender rules point to unknown company IDs: '+badRefs.join(', '));
+  if(msgs.length){ bar.style.display='block'; bar.textContent='⚠ '+msgs.join('  |  '); }
   else bar.style.display='none';
 }
-function refreshRaw(){
-  if($('#rawWrap').open) $('#rawJson').textContent=serialize();
-}
-function esc(s){ return (s??'').toString()
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function refreshRaw(){ if($('#rawWrap').open) $('#rawJson').textContent=serialize(); }
 
-// ---- render --------------------------------------------------------------
+// ---- render root ---------------------------------------------------------
 function render(){
-  const cs=state.data.companies;
-  $('#emptyState').style.display=cs.length?'none':'block';
-  $('#rawWrap').style.display=cs.length?'block':'none';
-  companiesEl.innerHTML=cs.map((c,i)=>companyHtml(c,i)).join('');
-  refreshWarn(); refreshRaw();
+  const has=state.data.companies.length || Object.keys(state.data.senderRules).length || state.data.documentRules.length;
+  $('#emptyState').style.display=has?'none':'block';
+  $('#rawWrap').style.display=has?'block':'none';
+  renderCompanies(); renderSenderRules(); renderDocumentRules();
+  updateCounts(); refreshWarn(); refreshRaw();
 }
 
+// ---- Companies -----------------------------------------------------------
+function renderCompanies(){
+  $('#pane-companies').innerHTML =
+    `<div class="toolbar"><button id="addCompanyBtn">+ Company</button></div>` +
+    state.data.companies.map((c,i)=>companyHtml(c,i)).join('');
+  const b=$('#addCompanyBtn'); if(b) b.onclick=addCompany;
+}
 function listFieldHtml(c,ci,f){
   const arr=Array.isArray(c[f.key])?c[f.key]:[];
   const rows=arr.map((v,vi)=>`
@@ -268,24 +298,22 @@ function listFieldHtml(c,ci,f){
         data-act="list-edit" data-ci="${ci}" data-key="${f.key}" data-vi="${vi}">
       <button class="danger small" data-act="list-del" data-ci="${ci}" data-key="${f.key}" data-vi="${vi}">✕</button>
     </div>`).join('');
-  const removable = !f.always ? `<button class="danger small" data-act="field-del" data-ci="${ci}" data-key="${f.key}">remove field</button>` : '';
+  const removable=!f.always?`<button class="danger small" data-act="field-del" data-ci="${ci}" data-key="${f.key}">remove field</button>`:'';
   return `<div class="field">
     <label>${f.label} ${removable}</label>
     ${rows||'<p class="hint">none</p>'}
     <button class="small ghost" data-act="list-add" data-ci="${ci}" data-key="${f.key}">+ add</button>
   </div>`;
 }
-
 function supplierAccountsHtml(c,ci){
   const obj=(c.supplierAccounts&&typeof c.supplierAccounts==='object')?c.supplierAccounts:null;
   if(!obj) return '';
-  const entries=Object.entries(obj);
-  const rows=entries.map(([dom,vals],ri)=>{
+  const rows=Object.entries(obj).map(([dom,vals],ri)=>{
     const list=Array.isArray(vals)?vals.join(', '):esc(vals);
-    return `<div class="sa-row">
+    return `<div class="kv-row">
       <input type="text" value="${esc(dom)}" placeholder="supplier.co.uk"
         data-act="sa-dom" data-ci="${ci}" data-ri="${ri}">
-      <input type="text" value="${esc(list)}" placeholder="GW-88213, ACC-4471"
+      <input type="text" value="${esc(list)}" placeholder="1003443912, ACC-4471"
         data-act="sa-vals" data-ci="${ci}" data-ri="${ri}">
       <button class="danger small" data-act="sa-del" data-ci="${ci}" data-ri="${ri}">✕</button>
     </div>`;
@@ -295,133 +323,221 @@ function supplierAccountsHtml(c,ci){
       <button class="danger small" data-act="field-del" data-ci="${ci}" data-key="supplierAccounts">remove field</button>
     </label>
     <div class="section-card">
-      <div class="sa-head"><span>Supplier domain</span><span>Account numbers (comma-separated)</span><span></span></div>
+      <div class="kv-head"><span>Supplier domain</span><span>Account numbers (comma-separated)</span><span></span></div>
       ${rows||'<p class="hint">none</p>'}
       <button class="small ghost" data-act="sa-add" data-ci="${ci}">+ add supplier</button>
     </div>
   </div>`;
 }
-
 function addFieldSelect(c,ci){
   const opts=[];
-  for(const f of LIST_FIELDS) if(!f.always && !(f.key in c))
-    opts.push(`<option value="list:${f.key}">${f.label}</option>`);
+  for(const f of LIST_FIELDS) if(!f.always && !(f.key in c)) opts.push(`<option value="list:${f.key}">${f.label}</option>`);
   if(!('supplierAccounts' in c)) opts.push(`<option value="sa">Supplier accounts</option>`);
   if(!opts.length) return '';
   return `<div class="add-field-row">
     <span class="hint">Add optional field:</span>
-    <select data-act="field-add-sel" data-ci="${ci}">
-      <option value="">choose…</option>${opts.join('')}
-    </select>
+    <select data-act="field-add-sel" data-ci="${ci}"><option value="">choose…</option>${opts.join('')}</select>
   </div>`;
 }
-
 function companyHtml(c,ci){
   const scalars=SCALAR_FIELDS.map(f=>`
-    <div class="field">
-      <label>${f.label}</label>
+    <div class="field"><label>${f.label}</label>
       <input type="text" value="${esc(c[f.key])}" placeholder="${esc(f.ph)}"
-        data-act="scalar" data-ci="${ci}" data-key="${f.key}">
-    </div>`).join('');
-  // list fields: always-present ones + any optional ones already in object
-  const lists=LIST_FIELDS
-    .filter(f=>f.always || (f.key in c))
-    .map(f=>listFieldHtml(c,ci,f)).join('');
+        data-act="scalar" data-ci="${ci}" data-key="${f.key}"></div>`).join('');
+  const lists=LIST_FIELDS.filter(f=>f.always||(f.key in c)).map(f=>listFieldHtml(c,ci,f)).join('');
   const title=c.companyName||c.id||'(unnamed company)';
-  return `<div class="company">
-    <div class="company-head">
-      <span class="title">${esc(title)}</span>
-      <button class="danger small" data-act="company-del" data-ci="${ci}">Delete company</button>
-    </div>
-    <div class="company-body">
+  return `<div class="card">
+    <div class="card-head"><span class="title">${esc(title)}</span>
+      <button class="danger small" data-act="company-del" data-ci="${ci}">Delete company</button></div>
+    <div class="card-body">
       <div class="grid-2">${scalars}</div>
       ${lists}
       ${supplierAccountsHtml(c,ci)}
       ${addFieldSelect(c,ci)}
-    </div>
-  </div>`;
+    </div></div>`;
+}
+function addCompany(){
+  state.data.companies.push({id:'',companyName:'',names:[''],xeroEmail:''});
+  markDirty(); renderCompanies(); refreshWarn();
+  window.scrollTo(0,document.body.scrollHeight);
 }
 
-// ---- event delegation ----------------------------------------------------
-// text edits: update state without re-render (keep focus)
-companiesEl.addEventListener('input',e=>{
+// ---- Sender Rules --------------------------------------------------------
+function renderSenderRules(){
+  const sr=state.data.senderRules||{};
+  const idOpts=companyIds();
+  const rows=Object.entries(sr).map(([dom,id],ri)=>`
+    <div class="kv-row">
+      <input type="text" value="${esc(dom)}" placeholder="rackspace.co.uk" data-act="sr-dom" data-ri="${ri}">
+      ${selectHtml(idOpts, id, `data-act="sr-id" data-ri="${ri}"`)}
+      <button class="danger small" data-act="sr-del" data-ri="${ri}">✕</button>
+    </div>`).join('');
+  $('#pane-senderRules').innerHTML=`
+    <div class="card"><div class="card-head"><span class="title">Sender rules</span></div>
+      <div class="card-body">
+        <p class="hint">Map a sender domain to a company ID. Any email from that domain routes to that company.</p>
+        <div class="section-card">
+          <div class="kv-head"><span>Sender domain</span><span>Route to company</span><span></span></div>
+          ${rows||'<p class="hint">none</p>'}
+          <button class="small ghost" data-act="sr-add">+ add rule</button>
+        </div>
+      </div></div>`;
+}
+function rebuildSenderRules(){
+  const rows=$('#pane-senderRules').querySelectorAll('.kv-row');
+  const obj={};
+  rows.forEach(r=>{
+    const dom=r.querySelector('[data-act=sr-dom]').value.trim();
+    const id=r.querySelector('[data-act=sr-id]').value;
+    if(dom) obj[dom]=id;
+  });
+  state.data.senderRules=obj;
+}
+
+// ---- Document Rules ------------------------------------------------------
+function renderDocumentRules(){
+  const drs=state.data.documentRules||[];
+  $('#pane-documentRules').innerHTML =
+    `<div class="toolbar"><button id="addDocRuleBtn">+ Rule group</button></div>` +
+    drs.map((d,i)=>docRuleHtml(d,i)).join('');
+  const b=$('#addDocRuleBtn'); if(b) b.onclick=addDocRule;
+}
+function docRuleHtml(d,di){
+  const rules=Array.isArray(d.rules)?d.rules:[];
+  const ruleRows=rules.map((r,ri)=>`
+    <div class="rule-row">
+      ${selectHtml(MATCH_TYPES, r.match||'contains', `data-act="dr-match" data-di="${di}" data-ri="${ri}"`)}
+      <input type="text" value="${esc(r.text)}" placeholder="text to match"
+        data-act="dr-text" data-di="${di}" data-ri="${ri}">
+      <button class="danger small" data-act="dr-rule-del" data-di="${di}" data-ri="${ri}">✕</button>
+    </div>`).join('');
+  const title=d.name||'(unnamed rule)';
+  return `<div class="card">
+    <div class="card-head"><span class="title">${esc(title)}</span>
+      <button class="danger small" data-act="dr-del" data-di="${di}">Delete group</button></div>
+    <div class="card-body">
+      <div class="grid-3">
+        <div class="field"><label>Name</label>
+          <input type="text" value="${esc(d.name)}" placeholder="Ignore Statements"
+            data-act="dr-name" data-di="${di}"></div>
+        <div class="field"><label>Action</label>
+          ${selectHtml(ACTION_TYPES, d.action||'route', `data-act="dr-action" data-di="${di}"`)}</div>
+        <div class="field"><label>Match threshold</label>
+          <input type="number" min="1" value="${esc(d.matchThreshold??1)}"
+            data-act="dr-threshold" data-di="${di}"></div>
+      </div>
+      <div class="field"><label>Match rules</label>
+        <div class="section-card">
+          <div class="rule-head"><span>Match type</span><span>Text</span><span></span></div>
+          ${ruleRows||'<p class="hint">none</p>'}
+          <button class="small ghost" data-act="dr-rule-add" data-di="${di}">+ add match rule</button>
+        </div>
+      </div>
+    </div></div>`;
+}
+function addDocRule(){
+  state.data.documentRules.push({name:'',action:'route',matchThreshold:1,rules:[{match:'contains',text:''}]});
+  markDirty(); renderDocumentRules();
+  window.scrollTo(0,document.body.scrollHeight);
+}
+
+// ---- events: companies pane ---------------------------------------------
+$('#pane-companies').addEventListener('input',e=>{
   const t=e.target, act=t.dataset.act; if(!act) return;
   const ci=+t.dataset.ci, c=state.data.companies[ci];
   if(act==='scalar'){ c[t.dataset.key]=t.value; markDirty();
-    if(t.dataset.key==='companyName'){ // live-update card title
-      const head=t.closest('.company').querySelector('.title');
-      head.textContent=t.value||c.id||'(unnamed company)';
-    }
+    if(t.dataset.key==='companyName') t.closest('.card').querySelector('.title').textContent=t.value||c.id||'(unnamed company)';
+    if(t.dataset.key==='id'){ refreshWarn(); renderSenderRules(); }
   }
   else if(act==='list-edit'){ c[t.dataset.key][+t.dataset.vi]=t.value; markDirty(); }
-  else if(act==='sa-dom' || act==='sa-vals'){ rebuildSA(ci); markDirty(); }
+  else if(act==='sa-dom'||act==='sa-vals'){ rebuildSA(ci); markDirty(); }
 });
-
-// structural changes: mutate then re-render
-companiesEl.addEventListener('click',e=>{
-  const t=e.target.closest('button'); if(!t) return;
-  const act=t.dataset.act; if(!act) return;
-  const ci=+t.dataset.ci; const c=state.data.companies[ci];
-  if(act==='company-del'){
-    if(confirm('Delete "'+(c.companyName||c.id||'this company')+'"?')){
-      state.data.companies.splice(ci,1); markDirty(); render(); }
-  }
-  else if(act==='list-add'){ (c[t.dataset.key] ||= []).push(''); markDirty(); render();
-    focusLast(t.dataset.ci,t.dataset.key); }
-  else if(act==='list-del'){ c[t.dataset.key].splice(+t.dataset.vi,1); markDirty(); render(); }
-  else if(act==='field-del'){ delete c[t.dataset.key]; markDirty(); render(); }
-  else if(act==='sa-add'){ (c.supplierAccounts ||= {})['']=[]; markDirty(); render(); }
-  else if(act==='sa-del'){
-    const keys=Object.keys(c.supplierAccounts); delete c.supplierAccounts[keys[+t.dataset.ri]];
-    markDirty(); render(); }
+$('#pane-companies').addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t||!t.dataset.act) return;
+  const act=t.dataset.act, ci=+t.dataset.ci, c=state.data.companies[ci];
+  if(act==='company-del'){ if(confirm('Delete "'+(c.companyName||c.id||'this company')+'"?')){
+    state.data.companies.splice(ci,1); markDirty(); renderCompanies(); renderSenderRules(); refreshWarn(); } }
+  else if(act==='list-add'){ (c[t.dataset.key] ||= []).push(''); markDirty(); renderCompanies(); focusLast(ci,t.dataset.key); }
+  else if(act==='list-del'){ c[t.dataset.key].splice(+t.dataset.vi,1); markDirty(); renderCompanies(); }
+  else if(act==='field-del'){ delete c[t.dataset.key]; markDirty(); renderCompanies(); }
+  else if(act==='sa-add'){ (c.supplierAccounts ||= {})['']=[]; markDirty(); renderCompanies(); }
+  else if(act==='sa-del'){ const keys=Object.keys(c.supplierAccounts); delete c.supplierAccounts[keys[+t.dataset.ri]]; markDirty(); renderCompanies(); }
 });
-
-// add optional field via select
-companiesEl.addEventListener('change',e=>{
+$('#pane-companies').addEventListener('change',e=>{
   const t=e.target; if(t.dataset.act!=='field-add-sel'||!t.value) return;
-  const ci=+t.dataset.ci, c=state.data.companies[ci];
-  if(t.value==='sa'){ c.supplierAccounts={}; }
-  else if(t.value.startsWith('list:')){ c[t.value.slice(5)]=['']; }
-  markDirty(); render();
+  const c=state.data.companies[+t.dataset.ci];
+  if(t.value==='sa') c.supplierAccounts={};
+  else if(t.value.startsWith('list:')) c[t.value.slice(5)]=[''];
+  markDirty(); renderCompanies();
 });
-
-// rebuild supplierAccounts object from its rows (preserves order, handles dup keys)
 function rebuildSA(ci){
-  const card=companiesEl.querySelectorAll('.company')[ci];
-  const rows=card.querySelectorAll('.sa-row');
+  const card=$('#pane-companies').querySelectorAll('.card')[ci];
   const obj={};
-  rows.forEach(r=>{
+  card.querySelectorAll('.kv-row').forEach(r=>{
     const dom=r.querySelector('[data-act=sa-dom]').value.trim();
-    const raw=r.querySelector('[data-act=sa-vals]').value;
-    const vals=raw.split(',').map(s=>s.trim()).filter(Boolean);
+    const vals=r.querySelector('[data-act=sa-vals]').value.split(',').map(s=>s.trim()).filter(Boolean);
     if(dom) obj[dom]=vals;
   });
   state.data.companies[ci].supplierAccounts=obj;
 }
-
 function focusLast(ci,key){
-  const card=companiesEl.querySelectorAll('.company')[ci];
+  const card=$('#pane-companies').querySelectorAll('.card')[ci];
   const inputs=card.querySelectorAll(`[data-act=list-edit][data-key="${key}"]`);
   if(inputs.length) inputs[inputs.length-1].focus();
 }
 
-// ---- add company ---------------------------------------------------------
-$('#addCompanyBtn').onclick=()=>{
-  state.data.companies.push({id:'',companyName:'',names:[''],senderRules:[''],xeroEmail:''});
-  markDirty(); render();
-  window.scrollTo(0,document.body.scrollHeight);
-};
+// ---- events: sender rules pane ------------------------------------------
+$('#pane-senderRules').addEventListener('input',e=>{
+  if(e.target.dataset.act==='sr-dom'){ rebuildSenderRules(); markDirty(); refreshWarn(); }
+});
+$('#pane-senderRules').addEventListener('change',e=>{
+  if(e.target.dataset.act==='sr-id'){ rebuildSenderRules(); markDirty(); refreshWarn(); }
+});
+$('#pane-senderRules').addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t||!t.dataset.act) return;
+  if(t.dataset.act==='sr-add'){ state.data.senderRules['']=companyIds()[0]||''; markDirty(); renderSenderRules(); }
+  else if(t.dataset.act==='sr-del'){ const keys=Object.keys(state.data.senderRules);
+    delete state.data.senderRules[keys[+t.dataset.ri]]; markDirty(); renderSenderRules(); refreshWarn(); }
+});
 
-// ---- toolbar wiring ------------------------------------------------------
+// ---- events: document rules pane ----------------------------------------
+$('#pane-documentRules').addEventListener('input',e=>{
+  const t=e.target, act=t.dataset.act; if(!act) return;
+  const d=state.data.documentRules[+t.dataset.di];
+  if(act==='dr-name'){ d.name=t.value; markDirty(); t.closest('.card').querySelector('.title').textContent=t.value||'(unnamed rule)'; }
+  else if(act==='dr-threshold'){ d.matchThreshold=t.value===''?'':Number(t.value); markDirty(); }
+  else if(act==='dr-text'){ d.rules[+t.dataset.ri].text=t.value; markDirty(); }
+});
+$('#pane-documentRules').addEventListener('change',e=>{
+  const t=e.target, act=t.dataset.act; if(!act) return;
+  const d=state.data.documentRules[+t.dataset.di];
+  if(act==='dr-action'){ d.action=t.value; markDirty(); }
+  else if(act==='dr-match'){ d.rules[+t.dataset.ri].match=t.value; markDirty(); }
+});
+$('#pane-documentRules').addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t||!t.dataset.act) return;
+  const act=t.dataset.act, d=state.data.documentRules[+t.dataset.di];
+  if(act==='dr-del'){ if(confirm('Delete rule group "'+(d.name||'this group')+'"?')){
+    state.data.documentRules.splice(+t.dataset.di,1); markDirty(); renderDocumentRules(); } }
+  else if(act==='dr-rule-add'){ (d.rules ||= []).push({match:'contains',text:''}); markDirty(); renderDocumentRules(); }
+  else if(act==='dr-rule-del'){ d.rules.splice(+t.dataset.ri,1); markDirty(); renderDocumentRules(); }
+});
+
+// ---- tabs / toolbar ------------------------------------------------------
+$('#tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  state.tab=b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+state.tab));
+});
 $('#openBtn').onclick=openFile;
 $('#reloadBtn').onclick=reload;
 $('#saveBtn').onclick=save;
 $('#rawWrap').addEventListener('toggle',refreshRaw);
-window.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); save(); }
-});
-window.addEventListener('beforeunload',e=>{ if(state.dirty){ e.preventDefault(); e.returnValue=''; } });
+window.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); save(); }});
+window.addEventListener('beforeunload',e=>{ if(state.dirty){ e.preventDefault(); e.returnValue=''; }});
 
+render();
 tryAutoLoad();
 </script>
 </body>

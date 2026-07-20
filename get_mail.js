@@ -6,41 +6,41 @@ import path from "path";
 import fileToRoute from "./file_router.js";
 
 let uidStore = {};
+let accountConfig;
+const jsonPath = new URL("./json_files/uid.json", import.meta.url)
 
 try {
-    uidStore = JSON.parse(
-        await fs.readFile("uid.json", "utf8")
-    );
+    uidStore = JSON.parse(await fs.readFile(jsonPath, "utf-8"));
 } catch {
     uidStore = {};
+
     await fs.writeFile(
-        "uid.json",
+        jsonPath,
         JSON.stringify(uidStore, null, 2)
     );
 }
 
-await fs.mkdir("attachments", {
-    recursive: true
-});
+accountConfig = JSON.parse(await fs.readFile(new URL("./json_files/mail_accounts.json", import.meta.url),"utf-8"));
 
-await Promise.all([
-    monitorMailbox({
-        user: process.env.IMAP_USER_FARAKH,
-        pass: process.env.IMAP_PASS_FARAKH
-    }),
-    monitorMailbox({
-        user: process.env.IMAP_USER_MUDASSAR,
-        pass: process.env.IMAP_PASS_MUDASSAR
-    })
-]);
+// create and attachments folder
+await fs.mkdir(new URL("./attachments", import.meta.url), { recursive: true });
 
-async function monitorMailbox({ user, pass }) {
+// store a list of accounts to be monitored from the JSON file
+const accounts = accountConfig.accounts;
+
+await Promise.all(accounts.map(account => monitorMailbox(account)));
+
+
+async function monitorMailbox(account) {
+    const user = process.env[account.userEnv];
+    const pass = process.env[account.passEnv];
+
     let lastUid = uidStore[user] ?? 0;
 
     const client = new ImapFlow({
-        host: "secure.emailsrvr.com",
-        port: 993,
-        secure: true,
+        host: account.host,
+        port: account.port,
+        secure: account.secure,
         auth: {
             user,
             pass
@@ -96,7 +96,7 @@ async function monitorMailbox({ user, pass }) {
 
                         const isPdf =
                             attachment.contentType ===
-                                "application/pdf" ||
+                            "application/pdf" ||
                             attachment.filename
                                 ?.toLowerCase()
                                 .endsWith(".pdf");
@@ -111,6 +111,17 @@ async function monitorMailbox({ user, pass }) {
                     });
 
                     if (result.status === "matched") {
+
+                        const safeFilename = path.basename(
+                            attachment.filename || "attachment.pdf"
+                        );
+
+                        await fs.writeFile(
+                            path.join("attachments", safeFilename),
+                            attachment.content
+                        );
+
+                        console.log(`Saved: ${safeFilename}`);
                         console.log(
                             `Ready to forward ${attachment.filename} ` +
                             `to ${result.company.companyName} ` +
@@ -134,16 +145,6 @@ async function monitorMailbox({ user, pass }) {
                         );
                     }
 
-                    const safeFilename = path.basename(
-                        attachment.filename || "attachment.pdf"
-                    );
-
-                    await fs.writeFile(
-                        path.join("attachments", safeFilename),
-                        attachment.content
-                    );
-
-                    console.log(`Saved: ${safeFilename}`);
                 }
 
                 lastUid = message.uid;
@@ -162,7 +163,7 @@ async function monitorMailbox({ user, pass }) {
 
 async function saveUidStore() {
     await fs.writeFile(
-        "uid.json",
+        jsonPath,
         JSON.stringify(uidStore, null, 2)
     );
 }

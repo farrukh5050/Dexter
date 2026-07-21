@@ -113,6 +113,7 @@
 
 <nav class="tabs" id="tabs">
   <button data-tab="companies" class="active">Companies <span class="count" id="cnt-companies">0</span></button>
+  <button data-tab="supplierAccounts">Supplier Accounts <span class="count" id="cnt-supplierAccounts">0</span></button>
   <button data-tab="senderRules">Sender Rules <span class="count" id="cnt-senderRules">0</span></button>
   <button data-tab="documentRules">Document Rules <span class="count" id="cnt-documentRules">0</span></button>
 </nav>
@@ -126,6 +127,7 @@
   </div>
 
   <div id="pane-companies" class="tab-pane active"></div>
+  <div id="pane-supplierAccounts" class="tab-pane"></div>
   <div id="pane-senderRules" class="tab-pane"></div>
   <div id="pane-documentRules" class="tab-pane"></div>
 
@@ -160,7 +162,7 @@ let fileHandle = null;
 const supportsFS = 'showOpenFilePicker' in window;
 const $ = s=>document.querySelector(s);
 
-function blank(){ return {companies:[], senderRules:{}, documentRules:[]}; }
+function blank(){ return {companies:[], supplierAccounts:{}, senderRules:{}, documentRules:[]}; }
 function markDirty(){ state.dirty=true; document.body.classList.add('dirty'); refreshRaw(); updateCounts(); }
 function clearDirty(){ state.dirty=false; document.body.classList.remove('dirty'); }
 function setStatus(msg,kind=''){ const s=$('#status'); s.textContent=msg; s.className='status '+kind;
@@ -193,6 +195,7 @@ function loadText(text,name){
     const parsed=JSON.parse(text);
     if(!parsed || !Array.isArray(parsed.companies))
       throw new Error('Expected an object with a "companies" array');
+    parsed.supplierAccounts = (parsed.supplierAccounts && typeof parsed.supplierAccounts==='object' && !Array.isArray(parsed.supplierAccounts)) ? parsed.supplierAccounts : {};
     parsed.senderRules = (parsed.senderRules && typeof parsed.senderRules==='object' && !Array.isArray(parsed.senderRules)) ? parsed.senderRules : {};
     parsed.documentRules = Array.isArray(parsed.documentRules) ? parsed.documentRules : [];
     state.data=parsed;
@@ -259,6 +262,7 @@ function selectHtml(options, current, attrs){
 }
 function updateCounts(){
   $('#cnt-companies').textContent=state.data.companies.length;
+  $('#cnt-supplierAccounts').textContent=Object.keys(state.data.supplierAccounts||{}).length;
   $('#cnt-senderRules').textContent=Object.keys(state.data.senderRules||{}).length;
   $('#cnt-documentRules').textContent=(state.data.documentRules||[]).length;
 }
@@ -266,9 +270,16 @@ function refreshWarn(){
   const dup=duplicateIds(); const bar=$('#warnbar');
   const badRefs=Object.entries(state.data.senderRules||{})
     .filter(([d,id])=>id && !companyIds().includes(id)).map(([d,id])=>`${d}→${id}`);
+  const saBadRefs=[];
+  for(const [dom,comps] of Object.entries(state.data.supplierAccounts||{})){
+    if(comps && typeof comps==='object' && !Array.isArray(comps))
+      for(const cid of Object.keys(comps))
+        if(cid && !companyIds().includes(cid)) saBadRefs.push(`${dom}→${cid}`);
+  }
   const msgs=[];
   if(dup.length) msgs.push('Duplicate company IDs: '+dup.join(', '));
   if(badRefs.length) msgs.push('Sender rules point to unknown company IDs: '+badRefs.join(', '));
+  if(saBadRefs.length) msgs.push('Supplier accounts point to unknown company IDs: '+saBadRefs.join(', '));
   if(msgs.length){ bar.style.display='block'; bar.textContent='⚠ '+msgs.join('  |  '); }
   else bar.style.display='none';
 }
@@ -276,10 +287,10 @@ function refreshRaw(){ if($('#rawWrap').open) $('#rawJson').textContent=serializ
 
 // ---- render root ---------------------------------------------------------
 function render(){
-  const has=state.data.companies.length || Object.keys(state.data.senderRules).length || state.data.documentRules.length;
+  const has=state.data.companies.length || Object.keys(state.data.supplierAccounts).length || Object.keys(state.data.senderRules).length || state.data.documentRules.length;
   $('#emptyState').style.display=has?'none':'block';
   $('#rawWrap').style.display=has?'block':'none';
-  renderCompanies(); renderSenderRules(); renderDocumentRules();
+  renderCompanies(); renderSupplierAccounts(); renderSenderRules(); renderDocumentRules();
   updateCounts(); refreshWarn(); refreshRaw();
 }
 
@@ -305,34 +316,9 @@ function listFieldHtml(c,ci,f){
     <button class="small ghost" data-act="list-add" data-ci="${ci}" data-key="${f.key}">+ add</button>
   </div>`;
 }
-function supplierAccountsHtml(c,ci){
-  const obj=(c.supplierAccounts&&typeof c.supplierAccounts==='object')?c.supplierAccounts:null;
-  if(!obj) return '';
-  const rows=Object.entries(obj).map(([dom,vals],ri)=>{
-    const list=Array.isArray(vals)?vals.join(', '):esc(vals);
-    return `<div class="kv-row">
-      <input type="text" value="${esc(dom)}" placeholder="supplier.co.uk"
-        data-act="sa-dom" data-ci="${ci}" data-ri="${ri}">
-      <input type="text" value="${esc(list)}" placeholder="1003443912, ACC-4471"
-        data-act="sa-vals" data-ci="${ci}" data-ri="${ri}">
-      <button class="danger small" data-act="sa-del" data-ci="${ci}" data-ri="${ri}">✕</button>
-    </div>`;
-  }).join('');
-  return `<div class="field">
-    <label>Supplier accounts
-      <button class="danger small" data-act="field-del" data-ci="${ci}" data-key="supplierAccounts">remove field</button>
-    </label>
-    <div class="section-card">
-      <div class="kv-head"><span>Supplier domain</span><span>Account numbers (comma-separated)</span><span></span></div>
-      ${rows||'<p class="hint">none</p>'}
-      <button class="small ghost" data-act="sa-add" data-ci="${ci}">+ add supplier</button>
-    </div>
-  </div>`;
-}
 function addFieldSelect(c,ci){
   const opts=[];
   for(const f of LIST_FIELDS) if(!f.always && !(f.key in c)) opts.push(`<option value="list:${f.key}">${f.label}</option>`);
-  if(!('supplierAccounts' in c)) opts.push(`<option value="sa">Supplier accounts</option>`);
   if(!opts.length) return '';
   return `<div class="add-field-row">
     <span class="hint">Add optional field:</span>
@@ -352,7 +338,6 @@ function companyHtml(c,ci){
     <div class="card-body">
       <div class="grid-2">${scalars}</div>
       ${lists}
-      ${supplierAccountsHtml(c,ci)}
       ${addFieldSelect(c,ci)}
     </div></div>`;
 }
@@ -450,7 +435,6 @@ $('#pane-companies').addEventListener('input',e=>{
     if(t.dataset.key==='id'){ refreshWarn(); renderSenderRules(); }
   }
   else if(act==='list-edit'){ c[t.dataset.key][+t.dataset.vi]=t.value; markDirty(); }
-  else if(act==='sa-dom'||act==='sa-vals'){ rebuildSA(ci); markDirty(); }
 });
 $('#pane-companies').addEventListener('click',e=>{
   const t=e.target.closest('button'); if(!t||!t.dataset.act) return;
@@ -460,31 +444,98 @@ $('#pane-companies').addEventListener('click',e=>{
   else if(act==='list-add'){ (c[t.dataset.key] ||= []).push(''); markDirty(); renderCompanies(); focusLast(ci,t.dataset.key); }
   else if(act==='list-del'){ c[t.dataset.key].splice(+t.dataset.vi,1); markDirty(); renderCompanies(); }
   else if(act==='field-del'){ delete c[t.dataset.key]; markDirty(); renderCompanies(); }
-  else if(act==='sa-add'){ (c.supplierAccounts ||= {})['']=[]; markDirty(); renderCompanies(); }
-  else if(act==='sa-del'){ const keys=Object.keys(c.supplierAccounts); delete c.supplierAccounts[keys[+t.dataset.ri]]; markDirty(); renderCompanies(); }
 });
 $('#pane-companies').addEventListener('change',e=>{
   const t=e.target; if(t.dataset.act!=='field-add-sel'||!t.value) return;
   const c=state.data.companies[+t.dataset.ci];
-  if(t.value==='sa') c.supplierAccounts={};
-  else if(t.value.startsWith('list:')) c[t.value.slice(5)]=[''];
+  if(t.value.startsWith('list:')) c[t.value.slice(5)]=[''];
   markDirty(); renderCompanies();
 });
-function rebuildSA(ci){
-  const card=$('#pane-companies').querySelectorAll('.card')[ci];
-  const obj={};
-  card.querySelectorAll('.kv-row').forEach(r=>{
-    const dom=r.querySelector('[data-act=sa-dom]').value.trim();
-    const vals=r.querySelector('[data-act=sa-vals]').value.split(',').map(s=>s.trim()).filter(Boolean);
-    if(dom) obj[dom]=vals;
-  });
-  state.data.companies[ci].supplierAccounts=obj;
-}
 function focusLast(ci,key){
   const card=$('#pane-companies').querySelectorAll('.card')[ci];
   const inputs=card.querySelectorAll(`[data-act=list-edit][data-key="${key}"]`);
   if(inputs.length) inputs[inputs.length-1].focus();
 }
+
+// ---- Supplier Accounts ---------------------------------------------------
+function renderSupplierAccounts(){
+  const sa=state.data.supplierAccounts||{};
+  const idOpts=companyIds();
+  const cards=Object.entries(sa).map(([dom,comps],di)=>{
+    const map=(comps&&typeof comps==='object'&&!Array.isArray(comps))?comps:{};
+    const rows=Object.entries(map).map(([cid,accts],ri)=>{
+      const list=Array.isArray(accts)?accts.join(', '):esc(accts);
+      return `<div class="kv-row">
+        ${selectHtml(idOpts, cid, `data-act="sa-cid" data-di="${di}" data-ri="${ri}"`)}
+        <input type="text" value="${esc(list)}" placeholder="1003443912, 1002857777"
+          data-act="sa-accts" data-di="${di}" data-ri="${ri}">
+        <button class="danger small" data-act="sa-row-del" data-di="${di}" data-ri="${ri}">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="card-head"><span class="title">${esc(dom||'(no domain)')}</span>
+        <button class="danger small" data-act="sa-dom-del" data-di="${di}">Delete supplier</button></div>
+      <div class="card-body">
+        <div class="field"><label>Supplier domain</label>
+          <input type="text" value="${esc(dom)}" placeholder="sage.com" data-act="sa-dom" data-di="${di}"></div>
+        <div class="field"><label>Account routing</label>
+          <div class="section-card">
+            <div class="kv-head"><span>Route to company</span><span>Account numbers (comma-separated)</span><span></span></div>
+            ${rows||'<p class="hint">none</p>'}
+            <button class="small ghost" data-act="sa-row-add" data-di="${di}">+ add account mapping</button>
+          </div>
+        </div>
+      </div></div>`;
+  }).join('');
+  $('#pane-supplierAccounts').innerHTML =
+    `<div class="toolbar"><button id="addSupplierBtn">+ Supplier domain</button></div>` +
+    `<p class="hint" style="margin:-8px 0 16px">Map a supplier's domain and account numbers to the company they belong to. An invoice from that supplier bearing one of these account numbers routes to the matching company.</p>` +
+    cards;
+  const b=$('#addSupplierBtn'); if(b) b.onclick=addSupplier;
+}
+function addSupplier(){
+  const sa=(state.data.supplierAccounts ||= {});
+  if('' in sa){ setStatus('Fill in the empty supplier domain first','warn'); return; }
+  sa['']={}; markDirty(); renderSupplierAccounts();
+  window.scrollTo(0,document.body.scrollHeight);
+}
+function rebuildSupplierAccounts(){
+  const obj={};
+  $('#pane-supplierAccounts').querySelectorAll('.card').forEach(card=>{
+    const dom=card.querySelector('[data-act=sa-dom]').value.trim();
+    if(!dom) return;
+    const map={};
+    card.querySelectorAll('.kv-row').forEach(r=>{
+      const cid=r.querySelector('[data-act=sa-cid]').value;
+      const accts=r.querySelector('[data-act=sa-accts]').value.split(',').map(s=>s.trim()).filter(Boolean);
+      if(cid) map[cid]=accts;
+    });
+    obj[dom]=map;
+  });
+  state.data.supplierAccounts=obj;
+}
+$('#pane-supplierAccounts').addEventListener('input',e=>{
+  const t=e.target, act=t.dataset.act; if(!act) return;
+  if(act==='sa-dom'){ rebuildSupplierAccounts(); markDirty(); refreshWarn();
+    t.closest('.card').querySelector('.title').textContent=t.value||'(no domain)'; }
+  else if(act==='sa-accts'){ rebuildSupplierAccounts(); markDirty(); }
+});
+$('#pane-supplierAccounts').addEventListener('change',e=>{
+  if(e.target.dataset.act==='sa-cid'){ rebuildSupplierAccounts(); markDirty(); refreshWarn(); }
+});
+$('#pane-supplierAccounts').addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t||!t.dataset.act) return;
+  const act=t.dataset.act, di=+t.dataset.di, sa=state.data.supplierAccounts;
+  const domKeys=Object.keys(sa);
+  if(act==='sa-dom-del'){ if(confirm('Delete supplier "'+(domKeys[di]||'this supplier')+'"?')){
+    delete sa[domKeys[di]]; markDirty(); renderSupplierAccounts(); refreshWarn(); } }
+  else if(act==='sa-row-add'){ const map=sa[domKeys[di]]; if(map){
+    const free=companyIds().find(id=>!(id in map));
+    if(!free){ setStatus('All companies are already mapped for this supplier','warn'); return; }
+    map[free]=[]; markDirty(); renderSupplierAccounts(); } }
+  else if(act==='sa-row-del'){ const map=sa[domKeys[di]]; const cKeys=Object.keys(map);
+    delete map[cKeys[+t.dataset.ri]]; markDirty(); renderSupplierAccounts(); refreshWarn(); }
+});
 
 // ---- events: sender rules pane ------------------------------------------
 $('#pane-senderRules').addEventListener('input',e=>{

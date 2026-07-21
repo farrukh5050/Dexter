@@ -53,11 +53,6 @@
         "goodwins cars limited",
         "goodwins cars ltd"
       ],
-      "supplierAccounts": {
-        "sage.com": [
-          "1003443912"
-        ]
-      },
       "xeroEmail": "bills.o7mz17.kid1otvd56u8royz@xerofiles.com"
     },
     {
@@ -84,6 +79,21 @@
       "xeroEmail": "bills.oxj7t8.1ave5d09fm3b0l5p@xerofiles.com"
     }
   ],
+  "supplierAccounts": {
+    "sage.com": {
+      "streetcars_accounts": [
+        "1003443912"
+      ],
+      "streetcars_manchester": [
+        "1002857777"
+      ]
+    },
+    "sendgrid.com": {
+      "streetcars_accounts": [
+        "15615100"
+      ]
+    }
+  },
   "senderRules": {
     "rackspace.co.uk": "streetcars_accounts",
     "sendgrid.com": "streetcars_accounts"

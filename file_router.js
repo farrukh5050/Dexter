@@ -10,10 +10,31 @@ const senderLookup = new Map(
     Object.entries(config.senderRules).map(([domain, companyId]) => [
         domain.toLowerCase(),
         config.companies.find(c => c.id === companyId)
-    ])
-        .filter(([, company]) => company
-        )
-);
+    ]).filter(([, company]) => company));
+
+const ruleMap = Object.fromEntries(config.documentRules.map(r => [r.name, r]));
+const supplierAccountLookup = [];
+
+for (const [supplierDomain, companies] of Object.entries(config.supplierAccounts ?? {})) {
+    for (const [companyId, accounts] of Object.entries(companies)) {
+        const company = config.companies.find(company => company.id === companyId);
+
+        if (!company) {
+            console.warn(`Unknown company ID "${companyId}"`);
+
+            continue;
+        }
+
+        for (const account of accounts) {
+            supplierAccountLookup.push({
+                supplierDomain: supplierDomain.toLowerCase(),
+                accountNumber: normaliseText(account),
+                company
+            });
+        }
+    }
+}
+
 
 export default async function fileToRoute(file, { from } = {}) {
     if (!file || !file.content) {
@@ -24,21 +45,47 @@ export default async function fileToRoute(file, { from } = {}) {
         };
     }
 
-    const senderMatch = findCompanyFromSender(file, from);
-    if (senderMatch) return senderMatch;
-
     let parser;
 
     try {
         parser = new PDFParse({ data: file.content });
         const result = await parser.getText();
         const text = result.text ?? "";
+        const normalisedText = normaliseText(text);
 
-        // const accountMatch = findCompanyFromSupplierAccount(file, text);
-        // if (accountMatch) return accountMatch;
+        for (const rule of Object.values(ruleMap)) {
+            let matchCount = 0;
+            for (const check of rule.rules) {
+                if (
+                    check.match === "contains" &&
+                    normalisedText.includes(normaliseText(check.text))
+                ) {
+                    matchCount++;
+                }
+            }
+
+            if (matchCount >= rule.matchThreshold &&
+                rule.action === "ignore"
+            ) {
+                return {
+                    status: "ignore",
+                    file,
+                    text,
+                    rule: rule.name,
+                    matchCount
+                };
+            }
+        }
+
+        const supplierAccountMatch = findCompanyFromSupplierAccount(file, text, from);
+        if (supplierAccountMatch) return supplierAccountMatch;
 
         const pdfMatch = findCompanyFromPDF(file, text);
         if (pdfMatch) return pdfMatch;
+
+        // check for a sender email match first
+        const senderMatch = findCompanyFromSender(file, from);
+        if (senderMatch) return senderMatch;
 
         return {
             status: "needs_review",
@@ -53,42 +100,18 @@ export default async function fileToRoute(file, { from } = {}) {
         };
     } finally {
         if (parser) {
-            await parser.destroy().catch(() => {});
+            await parser.destroy().catch(() => { });
         }
     }
 }
 
-function findCompanyFromPDF(file, text) {
-    if (!hasUsefulText(text)) {
-        return {
-            status: "ocr_required",
-            file,
-            text
-        };
-    }
-
-    const match = findCompanyFromText(text);
-
-    if (!match) {
-        return null;
-    }
-
-    return {
-        status: "matched",
-        file,
-        text,
-        company: match.company,
-        matchedBy: "pdf_alias",
-        matchedAlias: match.alias
-    };
-}
 
 function findCompanyFromSender(file, senderEmail = "") {
-    if (typeof senderEmail !== "string" || !senderEmail.trim()) return null;
+    const senderDomain = getSenderDomain(senderEmail);
 
-    const addressMatch = senderEmail.trim().toLowerCase().match(/<?([^<>\s@]+@([^<>\s@]+))>?$/);
-    const senderDomain = addressMatch?.[2]?.replace(/\.$/, "");
-    if (!senderDomain) return null;
+    if (!senderDomain) {
+        return null;
+    }
 
     for (const [rule, company] of senderLookup) {
         if (senderDomain === rule ||
@@ -106,12 +129,37 @@ function findCompanyFromSender(file, senderEmail = "") {
     return null;
 }
 
-function findCompanyFromText(text) {
+function findCompanyFromPDF(file, text) {
     const normalisedText = normaliseText(text);
 
+    if (!hasUsefulText(text)) {
+        return {
+            status: "ocr_required",
+            file,
+            text
+        };
+    }
+
+    const match = findCompanyFromText(normalisedText);
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        status: "matched",
+        file,
+        text,
+        company: match.company,
+        matchedBy: "pdf_alias",
+        matchedAlias: match.alias
+    };
+}
+
+function findCompanyFromText(text) {
     for (const company of config.companies) {
         for (const alias of company.names) {
-            if (normalisedText.includes(normaliseText(alias))) {
+            if (text.includes(normaliseText(alias))) {
                 return {
                     company,
                     alias,
@@ -119,17 +167,50 @@ function findCompanyFromText(text) {
             }
         }
     }
+    return null;
 }
 
+function findCompanyFromSupplierAccount(file, text, senderEmail = "") {
+    const senderDomain = getSenderDomain(senderEmail);
 
-// check to see if the email is for an invoice or a statement.
-function isStatement(text){
+    if (!senderDomain) {
+        return null;
+    }
 
+    const normalisedText = normaliseText(text);
+
+    for (const supplier of supplierAccountLookup) {
+        const senderMatches = senderDomain === supplier.supplierDomain || senderDomain.endsWith("." + supplier.supplierDomain);;
+
+        if (!senderMatches) {
+            continue;
+        }
+
+        if (normalisedText.includes(supplier.accountNumber)) {
+            return {
+                status: "matched",
+                file,
+                company: supplier.company,
+                matchedBy: "supplier_account",
+                matchedValue: supplier.accountNumber
+            };
+        }
+    }
+
+    return null;
 }
 
-// detect if the customer is email sales invoice to discuss discrencies with us
-function isOwnInvoice(text){
+function getSenderDomain(senderEmail = "") {
+    if (typeof senderEmail !== "string" || !senderEmail.trim()) {
+        return null;
+    }
 
+    const addressMatch = senderEmail
+        .trim()
+        .toLowerCase()
+        .match(/<?([^<>\s@]+@([^<>\s@]+))>?$/);
+
+    return addressMatch?.[2]?.replace(/\.$/, "") ?? null;
 }
 
 function hasUsefulText(text) {

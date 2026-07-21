@@ -128,7 +128,11 @@ async function monitorMailbox(account) {
                             `at ${result.company.xeroEmail} ` +
                             `using ${result.matchedBy}`
                         );
-                    } else if (result.status === "ocr_required") {
+                    } 
+                    else if (result.status === "ignore"){
+                        console.log(`Ignore ${attachment.filename} because it matched: ${result.rule}`)
+                    }
+                    else if (result.status === "ocr_required") {
                         console.log(
                             `${attachment.filename} appears to be a scanned PDF`
                         );

@@ -23,6 +23,14 @@
             "secure": true,
             "userEnv": "IMAP_USER_ACCOUNTS_GOODWINS",
             "passEnv": "IMAP_PASS_ACCOUNTS_GOODWINS"
+        },
+        {
+            "name": "info_streetrax",
+            "host": "secure.emailsrvr.com",
+            "port": 993,
+            "secure": true,
+            "userEnv": "IMAP_USER_INFO_STREETRAX",
+            "passEnv": "IMAP_PASS_INFO_STREETRAX"
         }
     ]
 }

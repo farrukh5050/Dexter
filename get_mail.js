@@ -20,7 +20,7 @@ try {
     );
 }
 
-accountConfig = JSON.parse(await fs.readFile(new URL("./json_files/mail_accounts.json", import.meta.url),"utf-8"));
+accountConfig = JSON.parse(await fs.readFile(new URL("./json_files/mail_accounts.json", import.meta.url), "utf-8"));
 
 // create and attachments folder
 await fs.mkdir(new URL("./attachments", import.meta.url), { recursive: true });
@@ -34,6 +34,9 @@ await Promise.all(accounts.map(account => monitorMailbox(account)));
 async function monitorMailbox(account) {
     const user = process.env[account.userEnv];
     const pass = process.env[account.passEnv];
+
+    const hasSavedUid = Object.hasOwn(uidStore, user);
+    const replayAllEmails = hasSavedUid && uidStore[user] === 0;
 
     let lastUid = uidStore[user] ?? 0;
 
@@ -52,7 +55,7 @@ async function monitorMailbox(account) {
     await client.mailboxOpen("INBOX");
 
     // On first run, start watching from the newest existing email
-    if (!uidStore[user]) {
+    if (!hasSavedUid) {
         const status = await client.status("INBOX", {
             uidNext: true
         });
@@ -65,12 +68,91 @@ async function monitorMailbox(account) {
 
     console.log(`Watching ${user} mailbox`);
 
+    if (user === "tee@streetrax.co.uk") {
+        for await (
+            const message of client.fetch(
+                {
+                    uid: `${lastUid}:*`
+                },
+                {
+                    uid: true,
+                    source: true
+                }
+            )
+        ) {
+            const parsed = await simpleParser(message.source);
+
+            const senderEmail =
+                parsed.from?.value?.[0]?.address ?? "";
+
+            const pdfAttachments = parsed.attachments.filter(
+                attachment => {
+                    const isPdf =
+                        attachment.contentType === "application/pdf" ||
+                        attachment.filename
+                            ?.toLowerCase()
+                            .endsWith(".pdf");
+
+                    return isPdf;
+                }
+            );
+
+            for (const attachment of pdfAttachments) {
+                const result = await fileToRoute(attachment, {
+                    from: senderEmail
+                });
+
+                if (result.status === "matched") {
+                    const savedFilename = buildAttachmentFilename({
+                        mailbox: user,
+                        companyName: result.company.companyName,
+                        receivedDate: parsed.date,
+                        originalFilename: attachment.filename
+
+                    });
+
+
+                    await fs.writeFile(new URL(`./attachments/${savedFilename}`, import.meta.url),
+                        attachment.content);
+
+                    console.log(`Saved: ${savedFilename}`);
+                    console.log(
+                        `Ready to forward ${attachment.filename} ` +
+                        `to ${result.company.companyName} ` +
+                        `at ${result.company.xeroEmail} ` +
+                        `using ${result.matchedBy}`
+                    );
+                } else if (result.status === "ignore") {
+                    console.log(
+                        `Ignored ${attachment.filename} because it matched: ${result.rule}`
+                    );
+                } else if (result.status === "ocr_required") {
+                    console.log(
+                        `${attachment.filename} appears to be a scanned PDF`
+                    );
+                } else if (result.status === "needs_review") {
+                    console.log(
+                        `${attachment.filename} could not be matched`
+                    );
+                } else if (result.status === "failed_to_process") {
+                    console.error(
+                        `Failed to process ${attachment.filename}:`,
+                        result.error
+                    );
+                }
+            }
+        }
+
+        console.log("tee@streetrax historic scan complete");
+        return;
+    }
+
     client.on("exists", async () => {
         try {
             for await (
                 const message of client.fetch(
                     {
-                        uid: `${lastUid + 1}:*`
+                        uid: `${lastUid}:*`
                     },
                     {
                         uid: true,
@@ -79,7 +161,7 @@ async function monitorMailbox(account) {
                 )
             ) {
                 // IMAP may return the last message when no newer UID exists
-                if (message.uid <= lastUid) {
+                if (message.uid < lastUid) {
                     continue;
                 }
 
@@ -111,25 +193,27 @@ async function monitorMailbox(account) {
                     });
 
                     if (result.status === "matched") {
+                        const savedFilename = buildAttachmentFilename({
+                            mailbox: user,
+                            companyName: result.company.companyName,
+                            receivedDate: parsed.date,
+                            originalFilename: attachment.filename
 
-                        const safeFilename = path.basename(
-                            attachment.filename || "attachment.pdf"
-                        );
+                        });
 
-                        await fs.writeFile(
-                            path.join("attachments", safeFilename),
-                            attachment.content
-                        );
 
-                        console.log(`Saved: ${safeFilename}`);
+                        await fs.writeFile(new URL(`./attachments/${savedFilename}`, import.meta.url),
+                            attachment.content);
+
+                        console.log(`Saved: ${savedFilename}`);
                         console.log(
                             `Ready to forward ${attachment.filename} ` +
                             `to ${result.company.companyName} ` +
                             `at ${result.company.xeroEmail} ` +
                             `using ${result.matchedBy}`
                         );
-                    } 
-                    else if (result.status === "ignore"){
+                    }
+                    else if (result.status === "ignore") {
                         console.log(`Ignore ${attachment.filename} because it matched: ${result.rule}`)
                     }
                     else if (result.status === "ocr_required") {
@@ -163,6 +247,54 @@ async function monitorMailbox(account) {
             );
         }
     });
+}
+
+function buildAttachmentFilename({
+    mailbox,
+    companyName,
+    receivedDate,
+    originalFilename
+}) {
+    const date = receivedDate
+        ? new Date(receivedDate)
+        : new Date();
+
+    const formattedDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+    ].join("-");
+
+    const formattedTime = [
+        String(date.getHours()).padStart(2, "0"),
+        String(date.getMinutes()).padStart(2, "0"),
+        String(date.getSeconds()).padStart(2, "0")
+    ].join("-");
+
+    const safeMailbox = sanitiseFilenamePart(
+        mailbox.replace("@", "_at_")
+    );
+
+    const safeCompany = sanitiseFilenamePart(companyName);
+
+    const safeOriginalFilename = sanitiseFilenamePart(
+        originalFilename || "attachment.pdf"
+    );
+
+    return (
+        `${safeMailbox}__` +
+        `${safeCompany}__` +
+        `${formattedDate}_${formattedTime}__` +
+        `${safeOriginalFilename}`
+    );
+}
+
+function sanitiseFilenamePart(value = "") {
+    return String(value)
+        .trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_");
 }
 
 async function saveUidStore() {

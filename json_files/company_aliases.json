@@ -111,6 +111,14 @@
         {
           "match": "contains",
           "text": "statement date"
+        },
+        {
+          "match": "contains",
+          "text": "supplier statement"
+        },
+        {
+          "match": "contains",
+          "text": "customer statement"
         }
       ]
     },
@@ -150,6 +158,91 @@
       ]
     },
     {
+      "name": "Ignore Licensing",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "taxi licensing"
+        },
+        {
+          "match": "contains",
+          "text": "vehicle renewal"
+        },
+        {
+          "match": "contains",
+          "text": "private hire vehicle licence"
+        },
+        {
+          "match": "contains",
+          "text": "application checklist"
+        },
+        {
+          "match": "contains",
+          "text": "plate no."
+        }
+      ]
+    },
+    {
+      "name": "Ignore Parking Notices",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "penalty charge notice"
+        },
+        {
+          "match": "contains",
+          "text": "estimate"
+        },
+        {
+          "match": "contains",
+          "text": "remittance advice"
+        },
+        {
+          "match": "contains",
+          "text": "parking services"
+        },
+        {
+          "match": "contains",
+          "text": "bus lane contraventions"
+        },
+        {
+          "match": "contains",
+          "text": "transport act 2000"
+        }
+      ]
+    },
+    {
+      "name": "Ignore Vehicle Documents",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "vehicle checklist"
+        },
+        {
+          "match": "contains",
+          "text": "vehicle history"
+        },
+        {
+          "match": "contains",
+          "text": "mot certificate"
+        },
+        {
+          "match": "contains",
+          "text": "vehicle inspection"
+        },
+        {
+          "match": "contains",
+          "text": "bank details"
+        }
+      ]
+    },
+    {
       "name": "Supplier Credit Note",
       "action": "route",
       "matchThreshold": 1,
@@ -167,7 +260,7 @@
     {
       "name": "Supplier Invoice",
       "action": "route",
-      "matchThreshold": 1,
+      "matchThreshold": 3,
       "rules": [
         {
           "match": "contains",
@@ -179,11 +272,51 @@
         },
         {
           "match": "contains",
+          "text": "invoice no"
+        },
+        {
+          "match": "contains",
+          "text": "invoice date"
+        },
+        {
+          "match": "contains",
           "text": "tax invoice"
         },
         {
           "match": "contains",
           "text": "vat invoice"
+        },
+        {
+          "match": "contains",
+          "text": "subtotal"
+        },
+        {
+          "match": "contains",
+          "text": "vat"
+        },
+        {
+          "match": "contains",
+          "text": "total due"
+        },
+        {
+          "match": "contains",
+          "text": "amount due"
+        },
+        {
+          "match": "contains",
+          "text": "balance due"
+        },
+        {
+          "match": "contains",
+          "text": "payment terms"
+        },
+        {
+          "match": "contains",
+          "text": "remit to"
+        },
+        {
+          "match": "contains",
+          "text": "bill to"
         }
       ]
     }

@@ -2,14 +2,9 @@ import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
 
 // Load company aliases and routing rules
-const configUrl = new URL(
-    "./json_files/company_aliases.json",
-    import.meta.url
-);
+const configUrl = new URL("./json_files/company_aliases.json", import.meta.url);
 
-const config = JSON.parse(
-    await fs.readFile(configUrl, "utf-8")
-);
+const config = JSON.parse(await fs.readFile(configUrl, "utf-8"));
 
 // Build sender-domain lookup
 const senderLookup = new Map(
@@ -68,10 +63,7 @@ for (
     }
 }
 
-export default async function fileToRoute(
-    file,
-    { from } = {}
-) {
+export default async function fileToRoute(file, { from } = {}) {
     if (!file || !file.content) {
         return {
             status: "failed_to_process",
@@ -83,11 +75,9 @@ export default async function fileToRoute(
     let parser;
 
     try {
-        parser = new PDFParse({
-            data: file.content
-        });
+        parser = new PDFParse({ data: file.content });
 
-        const result = await parser.getText();
+        const result = (await parser.getText());
         const text = result.text ?? "";
 
         // Scanned PDF with no useful extractable text
@@ -109,10 +99,7 @@ export default async function fileToRoute(
          * - Licensing documents
          * - Vehicle documents
          */
-        const ignoreRule = findDocumentRule(
-            text,
-            "ignore"
-        );
+        const ignoreRule = findDocumentRule(text, "ignore");
 
         if (ignoreRule) {
             return {
@@ -121,8 +108,7 @@ export default async function fileToRoute(
                 text,
                 rule: ignoreRule.rule.name,
                 matchCount: ignoreRule.matchCount,
-                matchedValues:
-                    ignoreRule.matchedValues
+                matchedValues: ignoreRule.matchedValues
             };
         }
 
@@ -130,10 +116,7 @@ export default async function fileToRoute(
          * 2. Check whether the document looks like
          * a supplier invoice or supplier credit note.
          */
-        const routeRule = findDocumentRule(
-            text,
-            "route"
-        );
+        const routeRule = findDocumentRule(text, "route");
 
         if (!routeRule) {
             return {
@@ -171,10 +154,7 @@ export default async function fileToRoute(
         /*
          * 4. Match the company name inside the PDF.
          */
-        const pdfMatch = findCompanyFromPDF(
-            file,
-            text
-        );
+        const pdfMatch = findCompanyFromPDFText(file, text);
 
         if (pdfMatch) {
             return {
@@ -245,8 +225,7 @@ export default async function fileToRoute(
  * - route
  */
 function findDocumentRule(text, action) {
-    const normalisedText =
-        normaliseText(text);
+    const normalisedText = normaliseText(text);
 
     for (const rule of Object.values(ruleMap)) {
         if (rule.action !== action) {
@@ -261,23 +240,15 @@ function findDocumentRule(text, action) {
                 continue;
             }
 
-            const normalisedCheck =
-                normaliseText(check.text);
+            const normalisedCheck = normaliseText(check.text);
 
-            if (
-                normalisedText.includes(
-                    normalisedCheck
-                )
-            ) {
+            if (normalisedText.includes(normalisedCheck)) {
                 matchCount++;
                 matchedValues.push(check.text);
             }
         }
 
-        if (
-            matchCount >=
-            Number(rule.matchThreshold ?? 1)
-        ) {
+        if (matchCount >= Number(rule.matchThreshold ?? 1)) {
             return {
                 rule,
                 matchCount,
@@ -292,23 +263,13 @@ function findDocumentRule(text, action) {
 /**
  * Match a company using the sender's domain.
  */
-function findCompanyFromSender(
-    file,
-    senderEmail = ""
-) {
-    const senderDomain =
-        getSenderDomain(senderEmail);
+function findCompanyFromSender(file, senderEmail = "") {
+    const senderDomain = getSenderDomain(senderEmail);
 
-    if (!senderDomain) {
-        return null;
-    }
+    if (!senderDomain) { return null; }
 
     for (const [rule, company] of senderLookup) {
-        const senderMatches =
-            senderDomain === rule ||
-            senderDomain.endsWith(
-                "." + rule
-            );
+        const senderMatches = senderDomain === rule || senderDomain.endsWith("." + rule);
 
         if (senderMatches) {
             return {
@@ -327,42 +288,21 @@ function findCompanyFromSender(
 /**
  * Match a company alias found inside the PDF.
  */
-function findCompanyFromPDF(file, text) {
-    const normalisedText =
-        normaliseText(text);
+function findCompanyFromPDFText(file, text) {
+    const normalisedText = normaliseText(text);
 
-    const match =
-        findCompanyFromText(normalisedText);
-
-    if (!match) {
-        return null;
-    }
-
-    return {
-        status: "matched",
-        file,
-        text,
-        company: match.company,
-        matchedBy: "pdf_alias",
-        matchedAlias: match.alias
-    };
-}
-
-/**
- * Search all configured company aliases.
- */
-function findCompanyFromText(text) {
     for (const company of config.companies) {
         for (const alias of company.names ?? []) {
-            const normalisedAlias =
-                normaliseText(alias);
+            const normalisedAlias = normaliseText(alias);
 
-            if (
-                text.includes(normalisedAlias)
-            ) {
+            if (normalisedText.includes(normalisedAlias)) {
                 return {
-                    company,
-                    alias
+                    status: "matched",
+                    file,
+                    text,
+                    company: match.company,
+                    matchedBy: "pdf_alias",
+                    matchedAlias: match.alias
                 };
             }
         }
@@ -377,11 +317,7 @@ function findCompanyFromText(text) {
  * 1. Supplier sender domain
  * 2. Account number inside the PDF
  */
-function findCompanyFromSupplierAccount(
-    file,
-    text,
-    senderEmail = ""
-) {
+function findCompanyFromSupplierAccount(file, text, senderEmail = "") {
     const senderDomain =
         getSenderDomain(senderEmail);
 
@@ -435,10 +371,7 @@ function findCompanyFromSupplierAccount(
  * Supplier Name <accounts@example.com>
  */
 function getSenderDomain(senderEmail = "") {
-    if (
-        typeof senderEmail !== "string" ||
-        !senderEmail.trim()
-    ) {
+    if (typeof senderEmail !== "string" || !senderEmail.trim()) {
         return null;
     }
 
@@ -450,8 +383,7 @@ function getSenderDomain(senderEmail = "") {
         );
 
     return (
-        addressMatch?.[2]
-            ?.replace(/\.$/, "") ??
+        addressMatch?.[2]?.replace(/\.$/, "") ??
         null
     );
 }

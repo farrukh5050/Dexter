@@ -5,48 +5,48 @@
             "host": "secure.emailsrvr.com",
             "port": 993,
             "secure": true,
-            "userEnv": "IMAP_USER_FARAKH",
-            "passEnv": "IMAP_PASS_FARAKH"
+            "userEnv": "USER_FARAKH",
+            "passEnv": "PASS_FARAKH"
         },
         {
             "name": "mudassar",
             "host": "secure.emailsrvr.com",
             "port": 993,
             "secure": true,
-            "userEnv": "IMAP_USER_MUDASSAR",
-            "passEnv": "IMAP_PASS_MUDASSAR"
+            "userEnv": "USER_MUDASSAR",
+            "passEnv": "PASS_MUDASSAR"
         },
         {
-            "name": "ionos",
+            "name": "nic",
+            "host": "secure.emailsrvr.com",
+            "port": 993,
+            "secure": true,
+            "userEnv": "USER_NIC",
+            "passEnv": "PASS_NIC"
+        },
+        {
+            "name": "accounts_goodwins",
             "host": "imap.ionos.co.uk",
             "port": 993,
             "secure": true,
-            "userEnv": "IMAP_USER_ACCOUNTS_GOODWINS",
-            "passEnv": "IMAP_PASS_ACCOUNTS_GOODWINS"
+            "userEnv": "USER_ACCOUNTS_GOODWINS",
+            "passEnv": "PASS_ACCOUNTS_GOODWINS"
         },
         {
             "name": "info_strx",
             "host": "secure.emailsrvr.com",
             "port": 993,
             "secure": true,
-            "userEnv": "IMAP_USER_TEE_STREETRAX",
-            "passEnv": "IMAP_PASS_TEE_STREETRAX"
+            "userEnv": "USER_TEE_STREETRAX",
+            "passEnv": "PASS_TEE_STREETRAX"
         },
         {
             "name": "tee_strx",
             "host": "secure.emailsrvr.com",
             "port": 993,
             "secure": true,
-            "userEnv": "IMAP_USER_INFO_STREETRAX",
-            "passEnv": "IMAP_PASS_INFO_STREETRAX"
-        },
-        {
-            "name": "ash_streetcars",
-            "host": "secure.emailsrvr.com",
-            "port": 993,
-            "secure": true,
-            "userEnv": "IMAP_USER_ASH_STREETCARS",
-            "passEnv": "IMAP_PASS_ASH_STREETCARS"
+            "userEnv": "USER_INFO_STREETRAX",
+            "passEnv": "PASS_INFO_STREETRAX"
         }
     ]
 }

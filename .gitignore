@@ -3,4 +3,5 @@ attachments
 node_modules
 .env
 uid.json
-json_files/company_aliases.json
+company_aliases.json
+mail_accounts.json

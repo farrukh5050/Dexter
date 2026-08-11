@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
 
 // Load company aliases and routing rules
-const configUrl = new URL("./json_files/company_aliases.json", import.meta.url);
+const configUrl = new URL("../json_files/company_aliases.json", import.meta.url);
 
 const config = JSON.parse(await fs.readFile(configUrl, "utf-8"));
 
@@ -300,9 +300,9 @@ function findCompanyFromPDFText(file, text) {
                     status: "matched",
                     file,
                     text,
-                    company: match.company,
+                    company: company,
                     matchedBy: "pdf_alias",
-                    matchedAlias: match.alias
+                    matchedAlias: alias
                 };
             }
         }

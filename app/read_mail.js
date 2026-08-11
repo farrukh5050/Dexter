@@ -5,28 +5,25 @@ import "dotenv/config";
 import path from "path";
 import fileToRoute from "./file_router.js";
 
+
 let uidStore = {};
-let accountConfig;
-const jsonPath = new URL("./json_files/uid.json", import.meta.url)
+const uidStorePath = new URL("../json_files/uid.json", import.meta.url)
+const attachmentsPath = new URL("../attachments/", import.meta.url)
 
 try {
-    uidStore = JSON.parse(await fs.readFile(jsonPath, "utf-8"));
+    uidStore = JSON.parse(await fs.readFile(uidStorePath, "utf-8"));
 } catch {
     uidStore = {};
-
     await fs.writeFile(
-        jsonPath,
+        uidStorePath,
         JSON.stringify(uidStore, null, 2)
     );
 }
 
-accountConfig = JSON.parse(await fs.readFile(new URL("./json_files/mail_accounts.json", import.meta.url), "utf-8"));
-
 // create and attachments folder
-await fs.mkdir(new URL("./attachments", import.meta.url), { recursive: true });
+await fs.mkdir(attachmentsPath, { recursive: true });
 
-// store a list of accounts to be monitored from the JSON file
-const accounts = accountConfig.accounts;
+const accounts = getAccountsFromEnv()
 
 await Promise.all(accounts.map(account => monitorMailbox(account)));
 
@@ -34,6 +31,7 @@ await Promise.all(accounts.map(account => monitorMailbox(account)));
 async function monitorMailbox(account) {
     const user = process.env[account.userEnv];
     const pass = process.env[account.passEnv];
+    const host = process.env[account.hostEnv];
 
     const hasSavedUid = Object.hasOwn(uidStore, user);
     const replayAllEmails = hasSavedUid && uidStore[user] === 0;
@@ -41,9 +39,9 @@ async function monitorMailbox(account) {
     let lastUid = uidStore[user] ?? 0;
 
     const client = new ImapFlow({
-        host: account.host,
-        port: account.port,
-        secure: account.secure,
+        host: host,
+        port: 993,
+        secure: true,
         auth: {
             user,
             pass
@@ -68,85 +66,6 @@ async function monitorMailbox(account) {
 
     console.log(`Watching ${user} mailbox`);
 
-    if (user === "tee@streetrax.co.uk") {
-        for await (
-            const message of client.fetch(
-                {
-                    uid: `${lastUid}:*`
-                },
-                {
-                    uid: true,
-                    source: true
-                }
-            )
-        ) {
-            const parsed = await simpleParser(message.source);
-
-            const senderEmail =
-                parsed.from?.value?.[0]?.address ?? "";
-
-            const pdfAttachments = parsed.attachments.filter(
-                attachment => {
-                    const isPdf =
-                        attachment.contentType === "application/pdf" ||
-                        attachment.filename
-                            ?.toLowerCase()
-                            .endsWith(".pdf");
-
-                    return isPdf;
-                }
-            );
-
-            for (const attachment of pdfAttachments) {
-                const result = await fileToRoute(attachment, {
-                    from: senderEmail
-                });
-
-                if (result.status === "matched") {
-                    const savedFilename = buildAttachmentFilename({
-                        mailbox: user,
-                        companyName: result.company.companyName,
-                        receivedDate: parsed.date,
-                        originalFilename: attachment.filename
-
-                    });
-
-
-                    await fs.writeFile(new URL(`./attachments/${savedFilename}`, import.meta.url),
-                        attachment.content);
-
-                    console.log(`Saved: ${savedFilename}`);
-                    console.log(
-                        `Ready to forward ${attachment.filename} ` +
-                        `to ${result.company.companyName} ` +
-                        `at ${result.company.xeroEmail} ` +
-                        `using ${result.matchedBy}`
-                    );
-                } else if (result.status === "ignore") {
-                    console.log(
-                        `Ignored ${attachment.filename} because it matched: ${result.rule}`
-                    );
-                } else if (result.status === "ocr_required") {
-                    console.log(
-                        `${attachment.filename} appears to be a scanned PDF`
-                    );
-                } else if (result.status === "needs_review") {
-                    console.log(
-                        `${attachment.filename} could not be matched`
-                    );
-                } else if (result.status === "failed_to_process") {
-                    console.error(
-                        `Failed to process ${attachment.filename}:`,
-                        result.error
-                    );
-                }
-            }
-        }
-
-        console.log("tee@streetrax historic scan complete");
-        return;
-    }
-
     client.on("exists", async () => {
         try {
             for await (
@@ -167,18 +86,14 @@ async function monitorMailbox(account) {
 
                 const parsed = await simpleParser(message.source);
 
-                const senderEmail =
-                    parsed.from?.value?.[0]?.address ?? "";
+                const senderEmail = parsed.from?.value?.[0]?.address ?? "";
 
                 const pdfAttachments = parsed.attachments.filter(
                     attachment => {
                         const isAttachment =
-                            attachment.contentDisposition ===
-                            "attachment";
+                            attachment.contentDisposition === "attachment";
 
-                        const isPdf =
-                            attachment.contentType ===
-                            "application/pdf" ||
+                        const isPdf = attachment.contentType === "application/pdf" ||
                             attachment.filename
                                 ?.toLowerCase()
                                 .endsWith(".pdf");
@@ -188,9 +103,7 @@ async function monitorMailbox(account) {
                 );
 
                 for (const attachment of pdfAttachments) {
-                    const result = await fileToRoute(attachment, {
-                        from: senderEmail
-                    });
+                    const result = await fileToRoute(attachment, { from: senderEmail });
 
                     if (result.status === "matched") {
                         const savedFilename = buildAttachmentFilename({
@@ -201,9 +114,7 @@ async function monitorMailbox(account) {
 
                         });
 
-
-                        await fs.writeFile(new URL(`./attachments/${savedFilename}`, import.meta.url),
-                            attachment.content);
+                        await fs.writeFile(new URL(savedFilename, attachmentsPath), attachment.content);
 
                         console.log(`Saved: ${savedFilename}`);
                         console.log(
@@ -299,7 +210,29 @@ function sanitiseFilenamePart(value = "") {
 
 async function saveUidStore() {
     await fs.writeFile(
-        jsonPath,
+        uidStorePath,
         JSON.stringify(uidStore, null, 2)
     );
+}
+
+function getAccountsFromEnv() {
+    const mail_accounts = Object.keys(process.env)
+        .filter((key) => key.startsWith("USER_"))
+        .sort()
+        .map(userEnv => {
+            const suffix = userEnv.replace("USER_", "");
+
+            return {
+                name: suffix.toLowerCase(),
+                userEnv,
+                passEnv: `PASS_${suffix}`,
+                hostEnv: `HOST_${suffix}`,
+            };
+        });
+
+    if (mail_accounts.length === 0) {
+        throw new Error("No USER_* mail accounts found in .env")
+    }
+
+    return mail_accounts;
 }

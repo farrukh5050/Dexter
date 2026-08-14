@@ -54,9 +54,7 @@ async function monitorMailbox(account) {
 
     // On first run, start watching from the newest existing email
     if (!hasSavedUid) {
-        const status = await client.status("INBOX", {
-            uidNext: true
-        });
+        const status = await client.status("INBOX", { uidNext: true });
 
         lastUid = status.uidNext - 1;
         uidStore[user] = lastUid;
@@ -69,16 +67,7 @@ async function monitorMailbox(account) {
     client.on("exists", async () => {
         try {
             for await (
-                const message of client.fetch(
-                    {
-                        uid: `${lastUid}:*`
-                    },
-                    {
-                        uid: true,
-                        source: true
-                    }
-                )
-            ) {
+                const message of client.fetch({ uid: `${lastUid}:*` }, { uid: true, source: true })) {
                 // IMAP may return the last message when no newer UID exists
                 if (message.uid < lastUid) {
                     continue;
@@ -86,64 +75,61 @@ async function monitorMailbox(account) {
 
                 const parsed = await simpleParser(message.source);
 
+                // extract attachements from email
+                const pdfAttachments = parsed.attachments.filter(attachment => {
+                    const isAttaschment = attachment.contentDisposition === "attachment";
+
+                    const isPdf = attachment.contentType === "application/pdf" || attachment.filename?.toLowerCase().endsWith(".pdf");
+
+                    return isAttaschment && isPdf;
+                });
+
+                // Get sender email address 
                 const senderEmail = parsed.from?.value?.[0]?.address ?? "";
-
-                const pdfAttachments = parsed.attachments.filter(
-                    attachment => {
-                        const isAttachment =
-                            attachment.contentDisposition === "attachment";
-
-                        const isPdf = attachment.contentType === "application/pdf" ||
-                            attachment.filename
-                                ?.toLowerCase()
-                                .endsWith(".pdf");
-
-                        return isAttachment && isPdf;
-                    }
-                );
 
                 for (const attachment of pdfAttachments) {
                     const result = await fileToRoute(attachment, { from: senderEmail });
 
-                    if (result.status === "matched") {
-                        const savedFilename = buildAttachmentFilename({
-                            mailbox: user,
-                            companyName: result.company.companyName,
-                            receivedDate: parsed.date,
-                            originalFilename: attachment.filename
+                    switch (result.status) {
+                        case "matched": {
+                            const savedFilename = buildAttachmentFilename({
+                                mailbox: user,
+                                companyName: result.company.companyName,
+                                receivedDate: parsed.date,
+                                originalFilename: attachment.filename
+                            });
 
-                        });
+                            await fs.writeFile(new URL(savedFilename, attachmentsPath), attachment.content);
 
-                        await fs.writeFile(new URL(savedFilename, attachmentsPath), attachment.content);
-
-                        console.log(`Saved: ${savedFilename}`);
-                        console.log(
-                            `Ready to forward ${attachment.filename} ` +
-                            `to ${result.company.companyName} ` +
-                            `at ${result.company.xeroEmail} ` +
-                            `using ${result.matchedBy}`
-                        );
+                            console.log(`Saved: ${savedFilename}`);
+                            console.log(
+                                `Ready to forward ${attachment.filename} ` +
+                                `to ${result.company.companyName} ` +
+                                `at ${result.company.xeroEmail} ` +
+                                `using ${result.matchedBy}`
+                            );
+                            break;
+                        }
+                        case "ignore": {
+                            console.log(`Ignore ${attachment.filename} because it matched: ${result.rule}`);
+                            break;
+                        }
+                        case "ocr_required": {
+                            console.log(`${attachment.filename} appears to be a scanned PDF`);
+                            break;
+                        }
+                        case "needs_review": {
+                            console.log(`${attachment.filename} could not be matched`);
+                            break;
+                        }
+                        case "failed_to_process": {
+                            console.error(`Failed to process ${attachment.filename}:`, result.error);
+                            break;
+                        }
+                        default: {
+                            console.error(`Unknown result type ${result.status}`);
+                        }
                     }
-                    else if (result.status === "ignore") {
-                        console.log(`Ignore ${attachment.filename} because it matched: ${result.rule}`)
-                    }
-                    else if (result.status === "ocr_required") {
-                        console.log(
-                            `${attachment.filename} appears to be a scanned PDF`
-                        );
-                    } else if (result.status === "needs_review") {
-                        console.log(
-                            `${attachment.filename} could not be matched`
-                        );
-                    } else if (
-                        result.status === "failed_to_process"
-                    ) {
-                        console.error(
-                            `Failed to process ${attachment.filename}:`,
-                            result.error
-                        );
-                    }
-
                 }
 
                 lastUid = message.uid;
@@ -160,15 +146,8 @@ async function monitorMailbox(account) {
     });
 }
 
-function buildAttachmentFilename({
-    mailbox,
-    companyName,
-    receivedDate,
-    originalFilename
-}) {
-    const date = receivedDate
-        ? new Date(receivedDate)
-        : new Date();
+function buildAttachmentFilename({ mailbox, companyName, receivedDate, originalFilename }) {
+    const date = receivedDate ? new Date(receivedDate) : new Date();
 
     const formattedDate = [
         date.getFullYear(),
@@ -176,26 +155,16 @@ function buildAttachmentFilename({
         String(date.getDate()).padStart(2, "0")
     ].join("-");
 
-    const formattedTime = [
-        String(date.getHours()).padStart(2, "0"),
-        String(date.getMinutes()).padStart(2, "0"),
-        String(date.getSeconds()).padStart(2, "0")
-    ].join("-");
-
-    const safeMailbox = sanitiseFilenamePart(
-        mailbox.replace("@", "_at_")
-    );
+    const safeMailbox = sanitiseFilenamePart(mailbox.split("@", 1)[0]);
 
     const safeCompany = sanitiseFilenamePart(companyName);
 
-    const safeOriginalFilename = sanitiseFilenamePart(
-        originalFilename || "attachment.pdf"
-    );
+    const safeOriginalFilename = sanitiseFilenamePart(originalFilename || "attachment.pdf");
 
     return (
-        `${safeMailbox}__` +
-        `${safeCompany}__` +
-        `${formattedDate}_${formattedTime}__` +
+        `${safeMailbox}_` +
+        `${safeCompany}_` +
+        `${formattedDate}_` +
         `${safeOriginalFilename}`
     );
 }

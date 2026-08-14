@@ -2,9 +2,7 @@ import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
 
 // Load company aliases and routing rules
-const configUrl = new URL("../json_files/company_aliases.json", import.meta.url);
-
-const config = JSON.parse(await fs.readFile(configUrl, "utf-8"));
+const config = JSON.parse(await fs.readFile(new URL("../json_files/company_aliases.json", import.meta.url), "utf-8"));
 
 // Build sender-domain lookup
 const senderLookup = new Map(
@@ -19,33 +17,21 @@ const senderLookup = new Map(
 );
 
 // Build document-rule lookup
-const ruleMap = Object.fromEntries(
-    (config.documentRules ?? []).map(rule => [
-        rule.name,
-        rule
-    ])
+const ruleMap = Object.fromEntries((config.documentRules ?? []).map(rule => [
+    rule.name,
+    rule
+])
 );
 
 // Build supplier-account lookup
 const supplierAccountLookup = [];
 
-for (
-    const [supplierDomain, companies]
-    of Object.entries(config.supplierAccounts ?? {})
-) {
-    for (
-        const [companyId, accounts]
-        of Object.entries(companies)
-    ) {
-        const company = config.companies.find(
-            company => company.id === companyId
-        );
+for (const [supplierDomain, companies] of Object.entries(config.supplierAccounts ?? {})) {
+    for (const [companyId, accounts] of Object.entries(companies)) {
+        const company = config.companies.find(company => company.id === companyId);
 
         if (!company) {
-            console.warn(
-                `Unknown company ID "${companyId}" in supplierAccounts`
-            );
-
+            console.warn(`Unknown company ID "${companyId}" in supplierAccounts`);
             continue;
         }
 
@@ -72,6 +58,8 @@ export default async function fileToRoute(file, { from } = {}) {
         };
     }
 
+    const senderDomain = getSenderDomain(from);
+
     let parser;
 
     try {
@@ -80,8 +68,8 @@ export default async function fileToRoute(file, { from } = {}) {
         const result = (await parser.getText());
         const text = result.text ?? "";
 
-        // Scanned PDF with no useful extractable text
-        if (!hasUsefulText(text)) {
+        // Scanned PDF for useful extractable text. if no text then return OCR Required 
+        if (text.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").length < 30) {
             return {
                 status: "ocr_required",
                 file,
@@ -123,8 +111,7 @@ export default async function fileToRoute(file, { from } = {}) {
                 status: "needs_review",
                 file,
                 text,
-                reason:
-                    "Document is not recognised as an invoice or credit note"
+                reason: "Document is not recognised as an invoice or credit note"
             };
         }
 
@@ -134,12 +121,7 @@ export default async function fileToRoute(file, { from } = {}) {
          * This is the strongest company match because
          * it combines the sender domain and account number.
          */
-        const supplierAccountMatch =
-            findCompanyFromSupplierAccount(
-                file,
-                text,
-                from
-            );
+        const supplierAccountMatch = findCompanyFromSupplierAccount(file, text, senderDomain);
 
         if (supplierAccountMatch) {
             return {
@@ -169,10 +151,7 @@ export default async function fileToRoute(file, { from } = {}) {
         /*
          * 5. Fall back to sender-domain routing.
          */
-        const senderMatch = findCompanyFromSender(
-            file,
-            from
-        );
+        const senderMatch = findCompanyFromSender(file, senderDomain);
 
         if (senderMatch) {
             return {
@@ -263,8 +242,7 @@ function findDocumentRule(text, action) {
 /**
  * Match a company using the sender's domain.
  */
-function findCompanyFromSender(file, senderEmail = "") {
-    const senderDomain = getSenderDomain(senderEmail);
+function findCompanyFromSender(file, senderDomain) {
 
     if (!senderDomain) { return null; }
 
@@ -317,45 +295,27 @@ function findCompanyFromPDFText(file, text) {
  * 1. Supplier sender domain
  * 2. Account number inside the PDF
  */
-function findCompanyFromSupplierAccount(file, text, senderEmail = "") {
-    const senderDomain =
-        getSenderDomain(senderEmail);
-
+function findCompanyFromSupplierAccount(file, text, senderDomain) {
     if (!senderDomain) {
         return null;
     }
 
-    const normalisedText =
-        normaliseText(text);
+    const normalisedText = normaliseText(text);
 
-    for (
-        const supplier
-        of supplierAccountLookup
-    ) {
-        const senderMatches =
-            senderDomain ===
-            supplier.supplierDomain ||
-            senderDomain.endsWith(
-                "." + supplier.supplierDomain
-            );
+    for (const supplier of supplierAccountLookup) {
+        const senderMatches = senderDomain === supplier.supplierDomain || senderDomain.endsWith("." + supplier.supplierDomain);
 
         if (!senderMatches) {
             continue;
         }
 
-        if (
-            normalisedText.includes(
-                supplier.accountNumber
-            )
-        ) {
+        if (normalisedText.includes(supplier.accountNumber)) {
             return {
                 status: "matched",
                 file,
                 company: supplier.company,
-                matchedBy:
-                    "supplier_account",
-                matchedValue:
-                    supplier.accountNumber
+                matchedBy: "supplier_account",
+                matchedValue: supplier.accountNumber
             };
         }
     }
@@ -386,21 +346,6 @@ function getSenderDomain(senderEmail = "") {
         addressMatch?.[2]?.replace(/\.$/, "") ??
         null
     );
-}
-
-/**
- * Determine whether the PDF contains enough
- * extractable text to process without OCR.
- */
-function hasUsefulText(text) {
-    const cleaned = String(text ?? "")
-        .replace(/\s+/g, "")
-        .replace(
-            /[^\p{L}\p{N}]/gu,
-            ""
-        );
-
-    return cleaned.length >= 30;
 }
 
 /**

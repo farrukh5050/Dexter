@@ -96,21 +96,38 @@
   },
   "senderRules": {
     "rackspace.co.uk": "streetcars_accounts",
-    "sendgrid.com": "streetcars_accounts"
+    "sendgrid.com": "streetcars_accounts",
+    "ionos.co.uk": "streetcars_accounts"
   },
   "documentRules": [
     {
       "name": "Ignore Statements",
       "action": "ignore",
-      "matchThreshold": 1,
+      "matchThreshold": 2,
       "rules": [
         {
           "match": "contains",
-          "text": "statement"
+          "text": "bank statement"
         },
         {
           "match": "contains",
           "text": "statement date"
+        },
+        {
+          "match": "contains",
+          "text": "statement period"
+        },
+        {
+          "match": "contains",
+          "text": "opening balance"
+        },
+        {
+          "match": "contains",
+          "text": "closing balance"
+        },
+        {
+          "match": "contains",
+          "text": "balance brought forward"
         },
         {
           "match": "contains",

@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
+import extractPdfTextWithOcr from "./pdf-ocr.js"
 
 // Load company aliases and routing rules
 const config = JSON.parse(await fs.readFile(new URL("../json_files/company_aliases.json", import.meta.url), "utf-8"));
@@ -16,12 +17,8 @@ const senderLookup = new Map(
         .filter(([, company]) => company)
 );
 
-// Build document-rule lookup
-const ruleMap = Object.fromEntries((config.documentRules ?? []).map(rule => [
-    rule.name,
-    rule
-])
-);
+// Keep document rules in their configured order and do not collapse duplicate names.
+const documentRules = config.documentRules ?? [];
 
 // Build supplier-account lookup
 const supplierAccountLookup = [];
@@ -36,12 +33,18 @@ for (const [supplierDomain, companies] of Object.entries(config.supplierAccounts
         }
 
         for (const account of accounts) {
+            const accountNumber = normaliseText(account);
+
+            if (!accountNumber) {
+                continue;
+            }
+
             supplierAccountLookup.push({
                 supplierDomain:
-                    supplierDomain.toLowerCase(),
+                    supplierDomain.trim().toLowerCase(),
 
                 accountNumber:
-                    normaliseText(account),
+                    accountNumber,
 
                 company
             });
@@ -49,7 +52,7 @@ for (const [supplierDomain, companies] of Object.entries(config.supplierAccounts
     }
 }
 
-export default async function fileToRoute(file, { from } = {}) {
+export default async function matchFileRules(file, { from } = {}) {
     if (!file || !file.content) {
         return {
             status: "failed_to_process",
@@ -64,17 +67,19 @@ export default async function fileToRoute(file, { from } = {}) {
 
     try {
         parser = new PDFParse({ data: file.content });
+        const pdfResult = await parser.getText();
+        let text = pdfResult.text ?? "";
+        let ocrConfidence = 0;
 
-        const result = (await parser.getText());
-        const text = result.text ?? "";
+        const usefullTextLength = text.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").length;
 
-        // Scanned PDF for useful extractable text. if no text then return OCR Required 
-        if (text.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").length < 30) {
-            return {
-                status: "ocr_required",
-                file,
-                text
-            };
+        if (usefullTextLength < 30) {
+            // Try to extract text from PDF using OCR
+            const ocrResult = await extractPdfTextWithOcr(file);
+
+            text = ocrResult.text ?? "";
+            ocrConfidence = ocrResult.confidence;
+            console.log(`OCR is used for file: ${file.filename} with confidence: ${ocrResult.confidence}`);
         }
 
         /*
@@ -189,9 +194,7 @@ export default async function fileToRoute(file, { from } = {}) {
         };
     } finally {
         if (parser) {
-            await parser
-                .destroy()
-                .catch(() => { });
+            await parser.destroy().catch(() => { });
         }
     }
 }
@@ -206,7 +209,7 @@ export default async function fileToRoute(file, { from } = {}) {
 function findDocumentRule(text, action) {
     const normalisedText = normaliseText(text);
 
-    for (const rule of Object.values(ruleMap)) {
+    for (const rule of documentRules) {
         if (rule.action !== action) {
             continue;
         }
@@ -220,6 +223,10 @@ function findDocumentRule(text, action) {
             }
 
             const normalisedCheck = normaliseText(check.text);
+
+            if (!normalisedCheck) {
+                continue;
+            }
 
             if (normalisedText.includes(normalisedCheck)) {
                 matchCount++;
@@ -272,6 +279,10 @@ function findCompanyFromPDFText(file, text) {
     for (const company of config.companies) {
         for (const alias of company.names ?? []) {
             const normalisedAlias = normaliseText(alias);
+
+            if (!normalisedAlias) {
+                continue;
+            }
 
             if (normalisedText.includes(normalisedAlias)) {
                 return {

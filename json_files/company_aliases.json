@@ -4,10 +4,7 @@
       "id": "streetcars_transportation",
       "companyName": "Street Cars Transportation Limited",
       "names": [
-        "street cars transportation limited",
-        "street cars transportation ltd",
-        "streetcars transportation limited",
-        "streetcars transportation ltd"
+        "street cars transportation limited"
       ],
       "xeroEmail": "bills.o3xgx5.8ne9q81gahi9bdzt@xerofiles.com"
     },
@@ -16,9 +13,7 @@
       "companyName": "Streetcars Manchester Limited",
       "names": [
         "streetcars manchester limited",
-        "streetcars manchester ltd",
-        "street cars manchester limited",
-        "street cars manchester ltd"
+        "street cars manchester"
       ],
       "xeroEmail": "bills.ol0jry.jphf02g4g4c7lgsi@xerofiles.com"
     },
@@ -26,10 +21,7 @@
       "id": "streetcars_accounts",
       "companyName": "Streetcars Accounts Limited",
       "names": [
-        "streetcars accounts limited",
-        "streetcars accounts ltd",
-        "street cars accounts limited",
-        "street cars accounts ltd"
+        "streetcars accounts limited"
       ],
       "xeroEmail": "bills.o2gf8b.770875msdxf9g4zu@xerofiles.com"
     },
@@ -37,8 +29,7 @@
       "id": "streetrax",
       "companyName": "Streetrax Limited",
       "names": [
-        "streetrax limited",
-        "streetrax ltd"
+        "streetrax limited"
       ],
       "xeroEmail": "bills.o1dt37.bjtkqomqus5oid8i@xerofiles.com"
     },
@@ -48,10 +39,8 @@
       "names": [
         "goodwins",
         "goodwins limited",
-        "goodwins ltd",
         "goodwins cars",
-        "goodwins cars limited",
-        "goodwins cars ltd"
+        "goodwins cars limited"
       ],
       "xeroEmail": "bills.o7mz17.kid1otvd56u8royz@xerofiles.com"
     },
@@ -60,8 +49,7 @@
       "companyName": "New Moon",
       "names": [
         "new moon",
-        "new moon limited",
-        "new moon ltd"
+        "new moon limited"
       ],
       "xeroEmail": "bills.olhb97.734g6unh3kud7hlk@xerofiles.com"
     },
@@ -70,11 +58,8 @@
       "companyName": "Streetcars Ground Transportation",
       "names": [
         "streetcars ground transportation",
-        "street cars ground transportation",
         "streetcars ground transportation limited",
-        "streetcars ground transportation ltd",
-        "street cars ground transportation limited",
-        "street cars ground transportation ltd"
+        "STREETCARS GROUND Customer Number"
       ],
       "xeroEmail": "bills.oxj7t8.1ave5d09fm3b0l5p@xerofiles.com"
     }
@@ -92,12 +77,23 @@
       "streetcars_accounts": [
         "15615100"
       ]
+    },
+    "anthropic.com": {
+      "streetcars_accounts": [
+        "431214838"
+      ]
+    },
+    "apexradio.com": {
+      "streetcars_accounts": [
+        "STRE04"
+      ]
     }
   },
   "senderRules": {
     "rackspace.co.uk": "streetcars_accounts",
     "sendgrid.com": "streetcars_accounts",
-    "ionos.co.uk": "streetcars_accounts"
+    "ionos.co.uk": "streetcars_accounts",
+    "textmagic.com": "streetcars_accounts"
   },
   "documentRules": [
     {
@@ -146,10 +142,6 @@
       "rules": [
         {
           "match": "contains",
-          "text": "invoice payable to: street cars accounts"
-        },
-        {
-          "match": "contains",
           "text": "14544028"
         },
         {
@@ -171,6 +163,50 @@
         {
           "match": "contains",
           "text": "21878307"
+        },
+        {
+          "match": "contains",
+          "text": "454091694"
+        },
+        {
+          "match": "contains",
+          "text": "33895335"
+        },
+        {
+          "match": "contains",
+          "text": "00937444"
+        },
+        {
+          "match": "contains",
+          "text": "booking receipt"
+        },
+        {
+          "match": "contains",
+          "text": "driver copy"
+        },
+        {
+          "match": "contains",
+          "text": "73704637"
+        },
+        {
+          "match": "contains",
+          "text": "20-01-96"
+        },
+        {
+          "match": "contains",
+          "text": "Draft Credit Sheet"
+        },
+        {
+          "match": "contains",
+          "text": "Job History"
+        },
+        {
+          "match": "contains",
+          "text": "admin charge applicable to journey price (10%)"
+        },
+        {
+          "match": "contains",
+          "text": "53093530"
         }
       ]
     },
@@ -216,10 +252,6 @@
         },
         {
           "match": "contains",
-          "text": "remittance advice"
-        },
-        {
-          "match": "contains",
           "text": "parking services"
         },
         {
@@ -229,6 +261,49 @@
         {
           "match": "contains",
           "text": "transport act 2000"
+        }
+      ]
+    },
+    {
+      "name": "Ignore Remittance Advice",
+      "action": "ignore",
+      "matchThreshold": 3,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "remittance advice"
+        },
+        {
+          "match": "contains",
+          "text": "date paid"
+        },
+        {
+          "match": "contains",
+          "text": "payment date"
+        },
+        {
+          "match": "contains",
+          "text": "payment amount"
+        },
+        {
+          "match": "contains",
+          "text": "amount paid"
+        },
+        {
+          "match": "contains",
+          "text": "paid to account"
+        },
+        {
+          "match": "contains",
+          "text": "external reference"
+        },
+        {
+          "match": "contains",
+          "text": "payment advice"
+        },
+        {
+          "match": "contains",
+          "text": "4000110418"
         }
       ]
     },
@@ -255,7 +330,11 @@
         },
         {
           "match": "contains",
-          "text": "bank details"
+          "text": "private hire operator licence"
+        },
+        {
+          "match": "contains",
+          "text": "licensed premises"
         }
       ]
     },
@@ -271,6 +350,10 @@
         {
           "match": "contains",
           "text": "credit memo"
+        },
+        {
+          "match": "contains",
+          "text": "purchase order"
         }
       ]
     },
@@ -334,6 +417,111 @@
         {
           "match": "contains",
           "text": "bill to"
+        },
+        {
+          "match": "contains",
+          "text": "due date"
+        },
+        {
+          "match": "contains",
+          "text": "total outstanding"
+        },
+        {
+          "match": "contains",
+          "text": "payment method"
+        },
+        {
+          "match": "contains",
+          "text": "tax point"
+        },
+        {
+          "match": "contains",
+          "text": "payment due by"
+        }
+      ]
+    },
+    {
+      "name": "Wage Slips",
+      "action": "ignore",
+      "matchThreshold": 1,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "employer paye reference"
+        },
+        {
+          "match": "contains",
+          "text": "take-home pay"
+        },
+        {
+          "match": "contains",
+          "text": "staff payroll"
+        }
+      ]
+    },
+    {
+      "name": "bank statement",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "your transaction"
+        },
+        {
+          "match": "contains",
+          "text": "21878307"
+        },
+        {
+          "match": "contains",
+          "text": "010202"
+        },
+        {
+          "match": "contains",
+          "text": "72753528"
+        },
+        {
+          "match": "contains",
+          "text": "COMMERCIAL CARDS DIVISION"
+        },
+        {
+          "match": "contains",
+          "text": "5473 6790 5057 4043"
+        },
+        {
+          "match": "contains",
+          "text": "83340430"
+        },
+        {
+          "match": "contains",
+          "text": "20-01-96"
+        },
+        {
+          "match": "contains",
+          "text": "93892131"
+        }
+      ]
+    },
+    {
+      "name": "cmac",
+      "action": "ignore",
+      "matchThreshold": 2,
+      "rules": [
+        {
+          "match": "contains",
+          "text": "COMMERCIAL IN CONFIDENCE"
+        },
+        {
+          "match": "contains",
+          "text": "PrecisionPayConfirmation"
+        },
+        {
+          "match": "contains",
+          "text": "6054801"
+        },
+        {
+          "match": "contains",
+          "text": "Precision Pay Credit Card"
         }
       ]
     }

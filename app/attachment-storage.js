@@ -41,13 +41,18 @@ export async function save_file_for_review(user, result, parsed, attachment) {
         originalFilename: attachment.filename
     });
 
+    console.log(
+        "Saving review file:",
+        JSON.stringify(savedFilename)
+    );
+    
     await fs.writeFile(
         new URL(savedFilename, statusPath),
         attachment.content
     );
 }
 
-function buildAttachmentFilename({mailbox, companyName, receivedDate, originalFilename}) {
+function buildAttachmentFilename({ mailbox, companyName, receivedDate, originalFilename }) {
     const parsedDate = receivedDate
         ? new Date(receivedDate)
         : new Date();
@@ -84,7 +89,7 @@ function buildAttachmentFilename({mailbox, companyName, receivedDate, originalFi
 function sanitiseFilenamePart(value = "") {
     return String(value)
         .trim()
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+        .replace(/[<>:"/\\|?*%#\x00-\x1F]/g, "_")
         .replace(/\s+/g, "_")
         .replace(/_+/g, "_");
 }

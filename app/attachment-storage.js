@@ -19,13 +19,8 @@ export async function save_file_matched(user, result, parsed, attachment) {
         attachment.content
     );
 
-    console.log(`Saved: ${savedFilename}`);
-    console.log(
-        `Ready to forward ${attachment.filename} ` +
-        `to ${result.company.companyName} ` +
-        `at ${result.company.xeroEmail} ` +
-        `using ${result.matchedBy}`
-    );
+    // console.log(`Saved: ${savedFilename}`);
+    // console.log(`Ready to forward ${attachment.filename} ` + `to ${result.company.companyName} ` + `at ${result.company.xeroEmail} ` + `using ${result.matchedBy}`);
 }
 
 export async function save_file_for_review(user, result, parsed, attachment) {
@@ -45,7 +40,7 @@ export async function save_file_for_review(user, result, parsed, attachment) {
         "Saving review file:",
         JSON.stringify(savedFilename)
     );
-    
+
     await fs.writeFile(
         new URL(savedFilename, statusPath),
         attachment.content

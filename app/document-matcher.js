@@ -180,8 +180,7 @@ export default async function matchFileRules(file, { from } = {}) {
                 routeRule.rule.name,
             documentMatchCount:
                 routeRule.matchCount,
-            reason:
-                "Invoice or credit note found, but company could not be matched"
+            reason:"Invoice or credit note found, but company could not be matched"
         };
     } catch (error) {
         return {
@@ -196,6 +195,32 @@ export default async function matchFileRules(file, { from } = {}) {
         if (parser) {
             await parser.destroy().catch(() => { });
         }
+    }
+}
+
+function matchesDocumentCheck(text, check) {
+    if (!check.text?.trim()) {
+        return false;
+    }
+
+    switch (check.match) {
+        case "contains":
+            return normaliseText(text).includes(
+                normaliseText(check.text)
+            );
+
+        case "whole_word": {
+            const documentText =
+                ` ${normaliseWords(text)} `;
+
+            const searchText =
+                ` ${normaliseWords(check.text)} `;
+
+            return documentText.includes(searchText);
+        }
+
+        default:
+            return false;
     }
 }
 
@@ -214,12 +239,22 @@ function findDocumentRule(text, action) {
             continue;
         }
 
+        const hasRequiredTerm = (rule.requiredTerms ?? []).every((term) => {
+            const normalisedTerm = normaliseText(term);
+            return normalisedTerm && normalisedText.includes(normalisedTerm);
+        });
+
+        if (!hasRequiredTerm) {
+            continue;
+        }
+
         let matchCount = 0;
         const matchedValues = [];
 
         for (const check of rule.rules ?? []) {
-            if (check.match !== "contains") {
-                continue;
+            if (matchesDocumentCheck(text, check)) {
+                matchCount++;
+                matchedValues.push(check.text);
             }
 
             const normalisedCheck = normaliseText(check.text);
@@ -376,4 +411,13 @@ function normaliseText(value = "") {
             /[^a-z0-9]/g,
             ""
         );
+}
+
+function normaliseWords(value = "") {
+    return String(value)
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/\blimited\b/g, "ltd")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
 }

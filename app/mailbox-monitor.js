@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import "dotenv/config";
 import matchFileRules from "./document-matcher.js";
 import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
-import extractPdfTextWithOcr from "./pdf-ocr.js";
+import { createSmtpTransport, sendAttachmentToXero } from "./email-to-xero.js"
 
 
 let uidStore = {};
@@ -25,7 +25,11 @@ try {
 // create and attachments folder
 await fs.mkdir(attachmentsPath, { recursive: true });
 
-const accounts = getAccountsFromEnv()
+const accounts = getAccountsFromEnv();
+const smtp_account = getSmtpFromEnv();
+
+const smtpTransporter = createSmtpTransport(smtp_account);
+
 
 await Promise.all(accounts.map(account => monitorMailbox(account)));
 
@@ -109,6 +113,16 @@ async function monitorMailbox(account) {
                         switch (result.status) {
                             case "matched":
                                 await save_file_matched(user, result, parsed, attachment);
+                                const delivery = await sendAttachmentToXero({
+                                    transporter: smtpTransporter,
+                                    senderEmail: smtp_account.user,
+                                    attachment,
+                                    xeroMailbox: result.company.xeroEmail
+                                });
+                                console.log(
+                                    `Sent ${attachment.filename} to Xero: ${delivery.messageId}`
+                                );
+                                
                                 break;
 
                             case "ignore":
@@ -181,4 +195,13 @@ function getAccountsFromEnv() {
     }
 
     return mail_accounts;
+}
+
+function getSmtpFromEnv() {
+    return {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT
+    }
 }

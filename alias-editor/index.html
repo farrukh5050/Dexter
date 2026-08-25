@@ -6,14 +6,14 @@
 <title>Company Aliases Editor</title>
 <style>
   :root{
-    --bg:#1a1d24; --panel:#22262f; --panel-2:#2a2f39; --border:#363c48;
+    --bg:#24241a; --panel:#22262f; --panel-2:#2a2f39; --border:#363c48;
     --text:#e4e7ee; --muted:#98a1b2; --accent:#8891d6; --accent-2:#7079c6;
     --danger:#d98a98; --danger-bg:#3a2830; --ok:#5cbfa5; --warn:#d4af6a;
     --chip:#2f3542;
   }
   @media (prefers-color-scheme: light){
     :root{
-      --bg:#f7f8fb; --panel:#ffffff; --panel-2:#f1f3f8; --border:#e2e6ee;
+      --bg:#03091d; --panel:#ee0e0e; --panel-2:#65db20; --border:#e2e6ee;
       --text:#2c3340; --muted:#6b7484; --accent:#6b73c4; --accent-2:#565fb0;
       --danger:#c96a7a; --danger-bg:#f7e7ea; --ok:#3f9e86; --warn:#b98b3f;
       --chip:#eef1f7;
@@ -99,16 +99,104 @@
     border-radius:8px; margin-bottom:16px; font-size:13px; display:none}
   .hint{color:var(--muted); font-size:12px; margin:4px 0 0}
   .tab-pane{display:none} .tab-pane.active{display:block}
+
+  /* Quiet, utilitarian editor theme */
+  :root{
+    --bg:#20252a; --panel:#292f35; --panel-2:#242a2f; --border:#414950;
+    --text:#edf0ed; --muted:#a8b0ae; --accent:#68977f; --accent-2:#79aa90;
+    --danger:#ef9a91; --danger-bg:#402c2d; --ok:#8cc8a7; --warn:#d7b46f;
+    --chip:transparent;
+  }
+  body{
+    font-family:Aptos,"Segoe UI Variable","Segoe UI",Tahoma,sans-serif;
+    background:var(--bg);
+  }
+  header{
+    position:static; padding:18px 28px; gap:10px; background:var(--panel);
+  }
+  .brand{margin-right:auto; min-width:220px}
+  header h1{
+    margin:0; font:650 22px/1.2 Aptos,"Segoe UI Variable","Segoe UI",sans-serif;
+    letter-spacing:-.01em;
+  }
+  header .file-name{display:block; margin-top:3px; font-size:12px}
+  .tabs{
+    position:static; padding:0 28px; gap:24px; overflow-x:auto;
+  }
+  .tabs button{
+    padding:12px 0 10px; border-bottom-width:3px; white-space:nowrap;
+  }
+  .tabs button.active{font-weight:700}
+  .tabs .count{
+    margin-left:4px; padding:0; border-radius:0; background:transparent;
+  }
+  .tabs .count::before{content:"("}
+  .tabs .count::after{content:")"}
+  main{max-width:1080px; padding:28px}
+  button{border-radius:3px; padding:8px 13px; transition:none}
+  button:hover{border-color:#69747c; background:var(--panel-2)}
+  button.primary{background:var(--accent); border-color:var(--accent)}
+  button.primary:hover{background:var(--accent-2); border-color:var(--accent-2)}
+  button.small{border-radius:2px}
+  button.danger:hover{border-color:#8f5553}
+  .card{
+    border-radius:4px; margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,.18);
+  }
+  .card-head{
+    padding:14px 18px 11px; background:var(--panel);
+  }
+  .card-head .title{
+    font:650 16px/1.3 Aptos,"Segoe UI Variable","Segoe UI",sans-serif;
+  }
+  .card-body{padding:18px; gap:18px}
+  .field label{
+    color:var(--text); font-size:13px; text-transform:none;
+    letter-spacing:0; margin-bottom:5px;
+  }
+  .grid-2{gap:18px}
+  .grid-3{grid-template-columns:1.2fr .8fr .8fr; gap:18px}
+  input[type=text],input[type=number],select{
+    background:#1d2226; border-color:#566068; border-radius:3px; padding:8px 9px;
+  }
+  input:focus,select:focus{
+    outline:2px solid rgba(40,95,80,.18); border-color:var(--accent);
+  }
+  .kv-head,.rule-head{font-size:12px; text-transform:none; margin-bottom:5px}
+  .section-card{border-radius:3px}
+  .add-field-row{border-top-style:solid; padding-top:14px}
+  .status{padding:6px 4px; border-radius:0}
+  .empty{
+    text-align:left; padding:36px; border-style:solid; border-radius:4px;
+  }
+  .empty p{margin:3px 0}
+  .toolbar{margin-bottom:18px}
+  details.raw{margin-top:28px}
+  details.raw summary{cursor:pointer}
+  details.raw pre{border-radius:3px}
+  .warnbar{border:1px solid #8f5553; border-radius:3px; margin-bottom:18px}
+  @media(max-width:700px){
+    header{padding:14px 16px}
+    .brand{flex-basis:100%}
+    .tabs{padding:0 16px; gap:18px}
+    main{padding:18px 14px}
+    .grid-2,.grid-3{grid-template-columns:1fr}
+    .kv-row{grid-template-columns:1fr auto}
+    .kv-head{display:none}
+    .rule-row,.rule-head{grid-template-columns:110px 1fr auto}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>Company Aliases Editor <span class="dirty-dot" id="dirtyDot" title="Unsaved changes"></span></h1>
-  <span class="file-name" id="fileName">no file loaded</span>
+  <div class="brand">
+    <h1>Routing rules <span class="dirty-dot" id="dirtyDot" title="Unsaved changes"></span></h1>
+    <span class="file-name" id="fileName">No file loaded</span>
+  </div>
   <span class="status" id="status"></span>
-  <button id="openBtn">Open JSON…</button>
-  <button id="reloadBtn" class="ghost" title="Reload from disk">↻</button>
-  <button id="saveBtn" class="primary">Save</button>
+  <button id="openBtn">Open file...</button>
+  <button id="reloadBtn" class="ghost" title="Reload from disk">Reload</button>
+  <button id="saveBtn" class="primary">Save changes</button>
 </header>
 
 <nav class="tabs" id="tabs">
@@ -152,7 +240,7 @@ const LIST_FIELDS = [
   {key:'recipientAliases',label:'Recipient email aliases', ph:'goodwins@yourdomain.co.uk'},
   {key:'vehicleRegs',     label:'Vehicle registrations', ph:'AB12 CDE'},
 ];
-const MATCH_TYPES  = ['contains']; // only "contains" is implemented in document-matcher.js
+const MATCH_TYPES  = ['contains', 'whole_word']; // only "contains" and "whole_word" is implemented in document-matcher.js
 const ACTION_TYPES = ['route','ignore'];
 const AUTOLOAD_PATHS = ['../json_files/company_aliases.json','../company_aliases.json'];
 

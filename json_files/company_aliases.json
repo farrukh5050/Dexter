@@ -4,7 +4,8 @@
       "id": "streetcars_transportation",
       "companyName": "Street Cars Transportation Limited",
       "names": [
-        "street cars transportation limited"
+        "street cars transportation limited",
+        "street cars transportation"
       ],
       "xeroEmail": "bills.o3xgx5.8ne9q81gahi9bdzt@xerofiles.com"
     },
@@ -102,35 +103,35 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "bank statement"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "statement date"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "statement period"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "opening balance"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "closing balance"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "balance brought forward"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "supplier statement"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "customer statement"
         }
       ]
@@ -149,7 +150,7 @@
           "text": "431214838"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "bibby commercial finance limited"
         },
         {
@@ -177,11 +178,11 @@
           "text": "00937444"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "booking receipt"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "driver copy"
         },
         {
@@ -193,15 +194,15 @@
           "text": "20-01-96"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "Draft Credit Sheet"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "Job History"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "admin charge applicable to journey price (10%)"
         },
         {
@@ -216,24 +217,24 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "taxi licensing"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vehicle renewal"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "private hire vehicle licence"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "application checklist"
         },
         {
-          "match": "contains",
-          "text": "plate no."
+          "match": "whole_word",
+          "text": "plate no"
         }
       ]
     },
@@ -243,23 +244,23 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "penalty charge notice"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "estimate"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "parking services"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "bus lane contraventions"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "transport act 2000"
         }
       ]
@@ -270,35 +271,47 @@
       "matchThreshold": 3,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "remittance advice"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
+          "text": "total amount paid"
+        },
+        {
+          "match": "whole_word",
+          "text": "remit date"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment made via"
+        },
+        {
+          "match": "whole_word",
           "text": "date paid"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment date"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment amount"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "amount paid"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "paid to account"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "external reference"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment advice"
         },
         {
@@ -313,27 +326,27 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vehicle checklist"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vehicle history"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "mot certificate"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vehicle inspection"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "private hire operator licence"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "licensed premises"
         }
       ]
@@ -344,15 +357,15 @@
       "matchThreshold": 1,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "credit note"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "credit memo"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "purchase order"
         }
       ]
@@ -360,10 +373,13 @@
     {
       "name": "Supplier Invoice",
       "action": "route",
+      "requiredTerms": [
+        "invoice"
+      ],
       "matchThreshold": 3,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "invoice"
         },
         {
@@ -379,63 +395,63 @@
           "text": "invoice date"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "tax invoice"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vat invoice"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "subtotal"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "vat"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "total due"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "amount due"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "balance due"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment terms"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "remit to"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "bill to"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "due date"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "total outstanding"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment method"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "tax point"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "payment due by"
         }
       ]
@@ -446,15 +462,15 @@
       "matchThreshold": 1,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "employer paye reference"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "take-home pay"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "staff payroll"
         }
       ]
@@ -465,7 +481,7 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "your transaction"
         },
         {
@@ -481,7 +497,7 @@
           "text": "72753528"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "COMMERCIAL CARDS DIVISION"
         },
         {
@@ -508,7 +524,7 @@
       "matchThreshold": 2,
       "rules": [
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "COMMERCIAL IN CONFIDENCE"
         },
         {
@@ -520,7 +536,7 @@
           "text": "6054801"
         },
         {
-          "match": "contains",
+          "match": "whole_word",
           "text": "Precision Pay Credit Card"
         }
       ]

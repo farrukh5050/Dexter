@@ -69,7 +69,6 @@ export default async function matchFileRules(file, { from } = {}) {
         parser = new PDFParse({ data: file.content });
         const pdfResult = await parser.getText();
         let text = pdfResult.text ?? "";
-        let ocrConfidence = 0;
 
         const usefullTextLength = text.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").length;
 
@@ -78,7 +77,6 @@ export default async function matchFileRules(file, { from } = {}) {
             const ocrResult = await extractPdfTextWithOcr(file);
 
             text = ocrResult.text ?? "";
-            ocrConfidence = ocrResult.confidence;
             console.log(`OCR is used for file: ${file.filename} with confidence: ${ocrResult.confidence}`);
         }
 
@@ -180,7 +178,7 @@ export default async function matchFileRules(file, { from } = {}) {
                 routeRule.rule.name,
             documentMatchCount:
                 routeRule.matchCount,
-            reason:"Invoice or credit note found, but company could not be matched"
+            reason: "Invoice or credit note found, but company could not be matched"
         };
     } catch (error) {
         return {
@@ -257,16 +255,6 @@ function findDocumentRule(text, action) {
                 matchedValues.push(check.text);
             }
 
-            const normalisedCheck = normaliseText(check.text);
-
-            if (!normalisedCheck) {
-                continue;
-            }
-
-            if (normalisedText.includes(normalisedCheck)) {
-                matchCount++;
-                matchedValues.push(check.text);
-            }
         }
 
         if (matchCount >= Number(rule.matchThreshold ?? 1)) {
@@ -309,7 +297,11 @@ function findCompanyFromSender(file, senderDomain) {
  * Match a company alias found inside the PDF.
  */
 function findCompanyFromPDFText(file, text) {
-    const normalisedText = normaliseText(text);
+    // remove email address from the pdf because the output gets confused
+
+    const textWithoutEmail = String(text).replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, " ");
+
+    const normalisedText = normaliseText(textWithoutEmail);
 
     for (const company of config.companies) {
         for (const alias of company.names ?? []) {
@@ -412,6 +404,7 @@ function normaliseText(value = "") {
             ""
         );
 }
+
 
 function normaliseWords(value = "") {
     return String(value)

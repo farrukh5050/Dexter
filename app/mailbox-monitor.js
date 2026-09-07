@@ -2,7 +2,7 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import fs from "fs/promises";
 import "dotenv/config";
-import matchFileRules from "./document-matcher.js";
+import matchFileRules from "./doc-rule-matcher.js";
 import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
 import { createSmtpTransport, sendAttachmentToXero } from "./email-to-xero.js"
 
@@ -30,8 +30,27 @@ const smtp_account = getSmtpFromEnv();
 
 const smtpTransporter = createSmtpTransport(smtp_account);
 
+await Promise.allSettled(accounts.map(account => watchAccount(account)));
 
-await Promise.all(accounts.map(account => monitorMailbox(account)));
+async function watchAccount(account) {
+    let attempt = 0;
+
+    for (; ;) {
+        try {
+            // Returns when the connection closes.
+            await monitorMailbox(account);
+            attempt = 0;
+        } catch (error) {
+            console.error(`Mailbox session failed for ${account.userEnv}:`, error);
+            attempt += 1;
+        }
+
+        const delay = Math.min(5000 * 2 ** Math.min(attempt, 6), 300_000);
+
+        console.log(`Reconnecting ${account.userEnv} in ${delay / 1000}s`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+}
 
 
 async function monitorMailbox(account) {
@@ -46,11 +65,24 @@ async function monitorMailbox(account) {
         host: host,
         port: 993,
         secure: true,
+        socketTimeout: 15 * 60 * 1000,
         auth: {
             user,
             pass
         },
         logger: false
+    });
+
+    let onClosed;
+    const closed = new Promise(resolve => { onClosed = resolve; });
+
+    client.on("error", error => {
+        console.error(`IMAP error for ${user}:`, error);
+    });
+
+    client.on("close", () => {
+        console.warn(`IMAP connection closed for ${user}`);
+        onClosed();
     });
 
     await client.connect();
@@ -75,6 +107,52 @@ async function monitorMailbox(account) {
         void drainMailbox();
     });
 
+    async function processMessage(source) {
+        const parsed = await simpleParser(source);
+
+        // Filter out PDF attachments from the email
+        const pdfAttachments = parsed.attachments.filter(attachment => {
+            const isAttachment = attachment.contentDisposition === "attachment";
+            const isPdf = attachment.contentType === "application/pdf" || attachment.filename?.toLocaleLowerCase().endsWith(".pdf");
+            return isAttachment && isPdf;
+        });
+
+        const senderEmail = parsed.from?.value?.[0]?.address ?? "";
+
+        for (const attachment of pdfAttachments) {
+            const result = await matchFileRules(attachment, { from: senderEmail });
+
+            switch (result.status) {
+                case "matched":
+                    await save_file_matched(user, result, parsed, attachment);
+                    await sendAttachmentToXero({
+                        transporter: smtpTransporter,
+                        senderEmail: smtp_account.user,
+                        attachment,
+                        xeroMailbox: result.company.xeroEmail
+                    });
+
+                    console.log(`Sent ${result.company.companyName}`);
+
+                    break;
+
+                case "ignore":
+                    console.log(`Ignored ${attachment.filename}: ${result.rule}`);
+                    break;
+
+                case "needs_review":
+                case "failed_to_process":
+                    await save_file_for_review(user, result, parsed, attachment);
+                    console.warn(`Saved ${attachment.filename} for manual review: ${result.status}`);
+                    break;
+
+                default:
+                    throw new Error(`Unknown status: ${result.status}`);
+            }
+        }
+
+    }
+
     async function drainMailbox() {
         if (processing) {
             return;
@@ -86,65 +164,32 @@ async function monitorMailbox(account) {
             do {
                 processAgain = false;
 
-                for await (
-                    const message of client.fetch(
-                        { uid: `${lastUid + 1}:*` },
-                        { uid: true, source: true }
-                    )
-                ) {
-                    // Some IMAP servers can still return the range boundary.
-                    if (message.uid <= lastUid) {
-                        continue;
+                // Phase 1: cheap. Ask only for UIDs, so this command is open
+                // for milliseconds instead of the whole batch.
+                const uids = (await client.search({ uid: `${lastUid + 1}:*` }, { uid: true }))
+                    // Some IMAP servers still return the range boundary.
+                    .filter(uid => uid > lastUid)
+                    .sort((a, b) => a - b);
+
+                for (const uid of uids) {
+                    if (!client.usable) {
+                        throw new Error("Connection lost while draining mailbox");
                     }
 
-                    const parsed = await simpleParser(message.source);
+                    // Phase 2: one short download, then all the slow OCR work
+                    // runs with no IMAP command left open.
+                    const message = await client.fetchOne(
+                        String(uid),
+                        { source: true },
+                        { uid: true }
+                    );
 
-                    const pdfAttachments = parsed.attachments.filter(attachment => {
-                        const isAttachment = attachment.contentDisposition === "attachment";
-                        const isPdf = attachment.contentType === "application/pdf" || attachment.filename?.toLowerCase().endsWith(".pdf");
-                        return isAttachment && isPdf;
-                    });
-
-                    const senderEmail = parsed.from?.value?.[0]?.address ?? "";
-
-                    for (const attachment of pdfAttachments) {
-                        const result = await matchFileRules(attachment, { from: senderEmail });
-
-                        switch (result.status) {
-                            case "matched":
-                                await save_file_matched(user, result, parsed, attachment);
-                                const delivery = await sendAttachmentToXero({
-                                    transporter: smtpTransporter,
-                                    senderEmail: smtp_account.user,
-                                    attachment,
-                                    xeroMailbox: result.company.xeroEmail
-                                });
-                                console.log(
-                                    `Sent ${attachment.filename} to Xero: ${delivery.messageId}`
-                                );
-                                
-                                break;
-
-                            case "ignore":
-                                console.log(
-                                    `Ignored ${attachment.filename}: ${result.rule}`
-                                );
-                                break;
-                            case "needs_review":
-                            case "failed_to_process":
-                                await save_file_for_review(user, result, parsed, attachment);
-                                console.warn(`Saved ${attachment.filename} for manual review` + result.status);
-                                break;
-
-                            default:
-                                throw new Error(
-                                    `Unknown result type: ${result.status}`
-                                );
-                        }
+                    // A missing message was deleted between search and fetch.
+                    if (message) {
+                        await processMessage(message.source);
                     }
 
-                    // Commit only after every attachment has been saved or queued.
-                    lastUid = message.uid;
+                    lastUid = uid;
                     uidStore[user] = lastUid;
                     await saveUidStore();
                 }
@@ -162,6 +207,9 @@ async function monitorMailbox(account) {
 
     // Process mail that arrived while the application was offline.
     void drainMailbox();
+
+    // Resolve when the connection drops, so watchAccount can reconnect.
+    await closed;
 }
 
 async function saveUidStore() {
@@ -183,7 +231,6 @@ function getAccountsFromEnv() {
             const suffix = userEnv.replace("USER_", "");
 
             return {
-                name: suffix.toLowerCase(),
                 userEnv,
                 passEnv: `PASS_${suffix}`,
                 hostEnv: `HOST_${suffix}`,

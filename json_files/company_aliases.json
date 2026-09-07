@@ -1,6 +1,14 @@
 {
   "companies": [
     {
+      "id": "streetrax",
+      "companyName": "Streetrax Limited",
+      "names": [
+        "streetrax limited"
+      ],
+      "xeroEmail": "bills.o1dt37.bjtkqomqus5oid8i@xerofiles.com"
+    },
+    {
       "id": "streetcars_transportation",
       "companyName": "Street Cars Transportation Limited",
       "names": [
@@ -25,14 +33,6 @@
         "streetcars accounts limited"
       ],
       "xeroEmail": "bills.o2gf8b.770875msdxf9g4zu@xerofiles.com"
-    },
-    {
-      "id": "streetrax",
-      "companyName": "Streetrax Limited",
-      "names": [
-        "streetrax limited"
-      ],
-      "xeroEmail": "bills.o1dt37.bjtkqomqus5oid8i@xerofiles.com"
     },
     {
       "id": "goodwins",
@@ -249,10 +249,6 @@
         },
         {
           "match": "whole_word",
-          "text": "estimate"
-        },
-        {
-          "match": "whole_word",
           "text": "parking services"
         },
         {
@@ -262,6 +258,22 @@
         {
           "match": "whole_word",
           "text": "transport act 2000"
+        },
+        {
+          "match": "contains",
+          "text": "parkingeye"
+        },
+        {
+          "match": "contains",
+          "text": "parking charge notice"
+        },
+        {
+          "match": "contains",
+          "text": "parking charge date"
+        },
+        {
+          "match": "contains",
+          "text": "notice to keeper"
         }
       ]
     },

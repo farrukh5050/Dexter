@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
-import matchFileRules from "./document-matcher.js";
+import matchFileRules from "./doc-rule-matcher.js";
 
-const pdfPath = process.argv[2] ?? "C:/Users/User/Desktop/farakh_needs_review_2026-08-21_Apex_Radio_Systems_Invoice_0000447372.pdf";
+const pdfPath = process.argv[2] ?? "C:/Users/User/Desktop/279744.pdf";
 const senderEmail = process.argv[3] ?? "";
 const filename = path.basename(pdfPath);
 const content = await fs.readFile(pdfPath);

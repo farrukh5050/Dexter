@@ -1,26 +1,83 @@
 import fs from "fs/promises";
 import { fileURLToPath } from "url";
 import { createWorker } from "tesseract.js";
-import { PDFParse } from "pdf-parse";
+import { Worker } from "worker_threads";
 
 
 const cachePath = new URL("../attachments/.ocr-cache", import.meta.url);
 
-// Render PDF pages to image buffer
-async function renderPdfPages(content) {
-    const parser = new PDFParse({ data: content })
+// One tesseract worker for the whole process. Spawning tesseract and loading
+// the language model per attachment is what made each email cost seconds.
+let workerPromise = null;
+let ocrQueue = Promise.resolve();
+
+// Lazily create the shared OCR worker, or return the existing one.
+function getWorker() {
+    if (!workerPromise) {
+        workerPromise = (async () => {
+            await fs.mkdir(cachePath, { recursive: true });
+            return createWorker("eng", 1, { cachePath: fileURLToPath(cachePath) });
+        })().catch(error => {
+            workerPromise = null; // let the next worker to try to create it again
+            throw error;
+        });
+    }
+
+    return workerPromise;
+}
+
+export async function terminateOcrWorker() {
+    if (!workerPromise) {
+        return;
+    }
+
+    const pending = workerPromise;
+    workerPromise = null;
 
     try {
-        const result = await parser.getScreenshot({
-            scale: 2.5,
-            imageDataUrl: false,
-            imageBuffer: true
+        const worker = await pending;
+        await worker.terminate();
+    } catch {
+        // Nothing to do if the worker has already been terminated
+    }
+}
+
+const renderWorkerPath = new URL("./pdf-render-worker.js", import.meta.url);
+
+// Render PDF pages to image buffers off the main thread, so rasterising does
+// not block the event loop and starve the IMAP connection.
+function renderPdfPages(content, scale = 2.5) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(renderWorkerPath, { workerData: { content, scale } });
+
+        let settled = false;
+
+        const finish = (settle, value) => {
+            if (settled) {
+                return;
+            }
+
+            settled = true;
+            void worker.terminate();
+            settle(value);
+        };
+
+        worker.on("message", message => {
+            if (message.ok) {
+                finish(resolve, message.pages);
+            } else {
+                finish(reject, new Error(message.error));
+            }
         });
 
-        return result.pages;
-    } finally {
-        await parser.destroy();
-    }
+        worker.on("error", error => finish(reject, error));
+
+        worker.on("exit", code => {
+            if (code !== 0) {
+                finish(reject, new Error(`PDF render worker exited with code ${code}`));
+            }
+        });
+    });
 }
 
 // Recognise text from pages and return an array of results
@@ -41,10 +98,7 @@ async function recognisePages(worker, pages) {
 
 // Build an ocr result from the pages
 function buildOcrResult(pages) {
-    const totalConfidence = pages.reduce(
-        (total, page) => total + page.confidence,
-        0
-    );
+    const totalConfidence = pages.reduce((total, page) => total + page.confidence, 0);
 
     return {
         text: pages.map(page => page.text).join("\n\n"),
@@ -54,29 +108,19 @@ function buildOcrResult(pages) {
 
 
 export default async function extractPdfTextWithOcr(file) {
-    if (!file?.content) {
-        throw new Error("The file has no content to OCR.");
+    if (!file.content) {
+        throw new Error("The file has no content to OCR")
     }
 
-    await fs.mkdir(cachePath, { recursive: true }); // cachePath is a path to a directory where the worker will store its cache
-    // Create a tesseract worker instance
-    const worker = await createWorker("eng", 1, {
-        cachePath: fileURLToPath(cachePath)
+    // A shared worker handles one job at a time, so keep calls serialised
+    const run = ocrQueue.then(async () => {
+        const worker = await getWorker();
+        const pages = await renderPdfPages(file.content);
+
+        return buildOcrResult(await recognisePages(worker, pages));
     });
 
-    const renderPages = await renderPdfPages(file.content);
+    ocrQueue = run.catch(() => { });
 
-    try {
-        const recognisedPages = await recognisePages(worker, renderPages);
-
-        const totalConfidence = recognisedPages.reduce((total, page) => total + page.confidence, 0);
-
-        return {
-            text: recognisedPages.map(page => page.text).join("\n\n"),
-            confidence: recognisedPages.length > 0 ? totalConfidence / recognisedPages.length : 0
-        };
-
-    } finally {
-        await worker.terminate()
-    }
+    return run;
 }

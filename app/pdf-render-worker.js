@@ -7,7 +7,9 @@ try {
     const result = await parser.getScreenshot({
         scale: workerData.scale,
         imageDataUrl: false,
-        imageBuffer: true
+        imageBuffer: true,
+        // Rasterising is the slow half, so only render the pages asked for.
+        ...(workerData.pages?.length ? { partial: workerData.pages } : {})
     });
 
     parentPort.postMessage({

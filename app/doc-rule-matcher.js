@@ -1,6 +1,5 @@
 import fs from "fs/promises";
-import { PDFParse } from "pdf-parse";
-import extractPdfTextWithOcr from "./pdf-ocr.js"
+import readPdfText from "./pdf-text.js";
 
 // Load company aliases and routing rules
 const config = JSON.parse(await fs.readFile(new URL("../json_files/company_aliases.json", import.meta.url), "utf-8"));
@@ -63,22 +62,12 @@ export default async function matchFileRules(file, { from } = {}) {
 
     const senderDomain = getSenderDomain(from);
 
-    let parser;
-
     try {
-        parser = new PDFParse({ data: file.content });
-        const pdfResult = await parser.getText();
-        let text = pdfResult.text ?? "";
-
-        const usefullTextLength = text.replace(/\s+/g, "").replace(/[^\p{L}\p{N}]/gu, "").length;
-
-        if (usefullTextLength < 30) {
-            // Try to extract text from PDF using OCR
-            const ocrResult = await extractPdfTextWithOcr(file);
-
-            text = ocrResult.text ?? "";
-            console.log(`OCR is used for file: ${file.filename} with confidence: ${ocrResult.confidence}`);
-        }
+        // The caller normally reads the text once for the whole attachment and
+        // passes in just this document's pages, so a 22-invoice batch is read
+        // and OCR'd once rather than 22 times. Reading it here is the fallback
+        // for a caller holding nothing but a file.
+        const text = file.text ?? (await readPdfText(file)).text;
 
         /*
          * 1. Check ignore rules first.
@@ -189,10 +178,6 @@ export default async function matchFileRules(file, { from } = {}) {
                     ? error.message
                     : String(error)
         };
-    } finally {
-        if (parser) {
-            await parser.destroy().catch(() => { });
-        }
     }
 }
 
@@ -413,4 +398,15 @@ function normaliseWords(value = "") {
         .replace(/\blimited\b/g, "ltd")
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
+}
+
+/**
+ * Count characters that could plausibly be document content:
+ * letters and digits only, whitespace and punctuation discarded.
+ */
+function countUseful(value = "") {
+    return String(value)
+        .replace(/\s+/g, "")
+        .replace(/[^\p{L}\p{N}]/gu, "")
+        .length;
 }

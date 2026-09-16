@@ -5,3 +5,4 @@ node_modules
 uid.json
 company_aliases.json
 mail_accounts.json
+*.md

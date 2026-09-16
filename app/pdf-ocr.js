@@ -46,9 +46,9 @@ const renderWorkerPath = new URL("./pdf-render-worker.js", import.meta.url);
 
 // Render PDF pages to image buffers off the main thread, so rasterising does
 // not block the event loop and starve the IMAP connection.
-function renderPdfPages(content, scale = 2.5) {
+function renderPdfPages(content, { scale = 2.5, pages = null } = {}) {
     return new Promise((resolve, reject) => {
-        const worker = new Worker(renderWorkerPath, { workerData: { content, scale } });
+        const worker = new Worker(renderWorkerPath, { workerData: { content, scale, pages } });
 
         let settled = false;
 
@@ -101,13 +101,16 @@ function buildOcrResult(pages) {
     const totalConfidence = pages.reduce((total, page) => total + page.confidence, 0);
 
     return {
+        // Per-page results, so a caller that only asked for some pages can
+        // merge them back against the pages that already had embedded text.
+        pages,
         text: pages.map(page => page.text).join("\n\n"),
         confidence: pages.length > 0 ? totalConfidence / pages.length : 0
     };
 }
 
 
-export default async function extractPdfTextWithOcr(file) {
+export default async function extractPdfTextWithOcr(file, { pages = null } = {}) {
     if (!file.content) {
         throw new Error("The file has no content to OCR")
     }
@@ -115,9 +118,9 @@ export default async function extractPdfTextWithOcr(file) {
     // A shared worker handles one job at a time, so keep calls serialised
     const run = ocrQueue.then(async () => {
         const worker = await getWorker();
-        const pages = await renderPdfPages(file.content);
+        const rendered = await renderPdfPages(file.content, { pages });
 
-        return buildOcrResult(await recognisePages(worker, pages));
+        return buildOcrResult(await recognisePages(worker, rendered));
     });
 
     ocrQueue = run.catch(() => { });

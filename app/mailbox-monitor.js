@@ -3,6 +3,9 @@ import { simpleParser } from "mailparser";
 import fs from "fs/promises";
 import "dotenv/config";
 import matchFileRules from "./doc-rule-matcher.js";
+import readPdfText from "./pdf-text.js";
+import triageContainer from "./doc-splitter.js";
+import extractPdfPages from "./pdf-pages.js";
 import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
 import { createSmtpTransport, sendAttachmentToXero } from "./email-to-xero.js"
 
@@ -11,6 +14,17 @@ let uidStore = {};
 let uidSaveQueue = Promise.resolve();
 const uidStorePath = new URL("../json_files/uid.json", import.meta.url)
 const attachmentsPath = new URL("../attachments/", import.meta.url)
+
+// Container rules decide whether an attachment is one document, a batch to
+// split, an operational report to discard, or a payment chase to hold back.
+const docConfig = JSON.parse(
+    await fs.readFile(
+        new URL("../json_files/company_aliases.json", import.meta.url),
+        "utf-8"
+    )
+);
+
+const containerRules = docConfig.containerRules ?? {};
 
 try {
     uidStore = JSON.parse(await fs.readFile(uidStorePath, "utf-8"));
@@ -120,37 +134,129 @@ async function monitorMailbox(account) {
         const senderEmail = parsed.from?.value?.[0]?.address ?? "";
 
         for (const attachment of pdfAttachments) {
-            const result = await matchFileRules(attachment, { from: senderEmail });
+            await processAttachment(attachment, parsed, senderEmail);
+        }
+    }
 
-            switch (result.status) {
-                case "matched":
-                    await save_file_matched(user, result, parsed, attachment);
-                    await sendAttachmentToXero({
-                        transporter: smtpTransporter,
-                        senderEmail: smtp_account.user,
-                        attachment,
-                        xeroMailbox: result.company.xeroEmail
-                    });
+    /*
+     * One attachment can hold one document or twenty-two. Read its text once,
+     * decide what it is, then route each document it turns out to contain.
+     */
+    async function processAttachment(attachment, parsed, senderEmail) {
+        const label = attachment.filename ?? "attachment.pdf";
 
-                    console.log(`Sent ${result.company.companyName}`);
+        const container = await readPdfText(attachment);
 
-                    break;
+        const triage = triageContainer(
+            { pages: container.pages, filename: label },
+            containerRules
+        );
 
-                case "ignore":
-                    console.log(`Ignored ${attachment.filename}: ${result.rule}`);
-                    break;
+        console.log(
+            `${label}: ${container.total} pages, ${triage.kind}/${triage.action} - ${triage.reason}`
+        );
 
-                case "needs_review":
-                case "failed_to_process":
-                    await save_file_for_review(user, result, parsed, attachment);
-                    console.warn(`Saved ${attachment.filename} for manual review: ${result.status}`);
-                    break;
-
-                default:
-                    throw new Error(`Unknown status: ${result.status}`);
-            }
+        // An operational report is discarded whole. Splitting a 60-page trip
+        // report would produce 60 pieces of garbage.
+        if (triage.action === "ignore") {
+            return;
         }
 
+        // A payment chase holds invoices that are probably already posted, so
+        // it never auto-posts. A human decides.
+        if (triage.action === "review") {
+            await save_file_for_review(
+                user,
+                { status: "needs_review", reason: triage.reason },
+                parsed,
+                attachment
+            );
+
+            console.warn(`Held ${label} for review: ${triage.reason}`);
+            return;
+        }
+
+        const isSplit = triage.groups.length > 1;
+
+        for (const [index, pageNumbers] of triage.groups.entries()) {
+            const document = await buildDocument(
+                attachment,
+                container,
+                pageNumbers,
+                index,
+                triage.groups.length
+            );
+
+            await routeDocument(document, parsed, senderEmail, { isSplit });
+        }
+    }
+
+    /*
+     * Build one deliverable document from a page range. A container holding a
+     * single document is delivered as-is; only a split batch needs a new PDF
+     * cut from the original, because Xero wants one file per bill.
+     */
+    async function buildDocument(attachment, container, pageNumbers, index, total) {
+        const text = pageNumbers
+            .map(num => container.pages.find(page => page.num === num)?.text ?? "")
+            .join("\n\n");
+
+        if (total === 1) {
+            return { ...attachment, text, pageNumbers };
+        }
+
+        const content = await extractPdfPages(attachment.content, pageNumbers);
+
+        return {
+            ...attachment,
+            content,
+            text,
+            pageNumbers,
+            filename: numberedFilename(attachment.filename, index + 1, total)
+        };
+    }
+
+    async function routeDocument(document, parsed, senderEmail, { isSplit }) {
+        const result = await matchFileRules(document, { from: senderEmail });
+
+        switch (result.status) {
+            case "matched":
+                await save_file_matched(user, result, parsed, document);
+
+                // A wrong page boundary would post a wrong bill, so documents
+                // cut out of a batch are held back until autoSendSplit is on.
+                if (isSplit && !containerRules.autoSendSplit) {
+                    console.warn(
+                        `Split document ${document.filename} matched ` +
+                        `${result.company.companyName} but was not sent ` +
+                        `(containerRules.autoSendSplit is off)`
+                    );
+                    break;
+                }
+
+                await sendAttachmentToXero({
+                    transporter: smtpTransporter,
+                    senderEmail: smtp_account.user,
+                    attachment: document,
+                    xeroMailbox: result.company.xeroEmail
+                });
+
+                console.log(`Sent ${document.filename} to ${result.company.companyName}`);
+                break;
+
+            case "ignore":
+                console.log(`Ignored ${document.filename}: ${result.rule}`);
+                break;
+
+            case "needs_review":
+            case "failed_to_process":
+                await save_file_for_review(user, result, parsed, document);
+                console.warn(`Saved ${document.filename} for manual review: ${result.status}`);
+                break;
+
+            default:
+                throw new Error(`Unknown status: ${result.status}`);
+        }
     }
 
     async function drainMailbox() {
@@ -251,4 +357,14 @@ function getSmtpFromEnv() {
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT
     }
+}
+
+/** "invoices.pdf" with 17 documents → "invoices_04-of-17.pdf" */
+function numberedFilename(filename = "attachment.pdf", index, total) {
+    const dot = filename.lastIndexOf(".");
+    const stem = dot > 0 ? filename.slice(0, dot) : filename;
+    const extension = dot > 0 ? filename.slice(dot) : ".pdf";
+    const width = String(total).length;
+
+    return `${stem}_${String(index).padStart(width, "0")}-of-${total}${extension}`;
 }

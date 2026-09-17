@@ -399,14 +399,3 @@ function normaliseWords(value = "") {
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
 }
-
-/**
- * Count characters that could plausibly be document content:
- * letters and digits only, whitespace and punctuation discarded.
- */
-function countUseful(value = "") {
-    return String(value)
-        .replace(/\s+/g, "")
-        .replace(/[^\p{L}\p{N}]/gu, "")
-        .length;
-}

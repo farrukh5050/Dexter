@@ -9,7 +9,7 @@
 import fs from "fs/promises";
 import path from "path";
 import matchFileRules from "./doc-rule-matcher.js";
-import readPdfText from "./pdf-text.js";
+import readPdfText, { pagesText } from "./pdf-text.js";
 import triageContainer from "./doc-splitter.js";
 import { terminateOcrWorker } from "./pdf-ocr.js";
 
@@ -69,9 +69,7 @@ if (triage.action === "ignore") {
 console.log("\n=== Documents ===");
 
 for (const [index, pageNumbers] of triage.groups.entries()) {
-    const text = pageNumbers
-        .map(num => container.pages.find(page => page.num === num)?.text ?? "")
-        .join("\n\n");
+    const text = pagesText(container, pageNumbers);
 
     const result = await matchFileRules(
         { ...file, text },

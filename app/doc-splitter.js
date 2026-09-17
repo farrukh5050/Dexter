@@ -15,20 +15,6 @@
  * can be tested from a fixture with no PDF and no mailbox.
  */
 
-const DEFAULT_MIN_PAGES = 3;
-
-const DEFAULT_SPLIT = {
-    pageMarkerPattern: "page\\s+(\\d+)\\s+of\\s+(\\d+)",
-    invoiceNumberPatterns: [
-        "invoice\\s*(?:number|no\\.?|#)\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",
-        "inv\\s*(?:no\\.?|#)\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})"
-    ],
-    totalsTerms: ["total due", "amount due", "balance due", "total payable", "invoice total"],
-    // Many invoices just say "Total £130.00". A bare "total" would also match
-    // a column header, so require a money amount next to it.
-    totalsPatterns: ["total\\s*[£$€]?\\s*[\\d,]+\\.\\d{2}"]
-};
-
 function normalise(value = "") {
     return String(value).toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -46,36 +32,26 @@ function matchesAny(text, patterns = []) {
     return patterns.some(pattern => new RegExp(pattern, "i").test(text));
 }
 
-/** A page ends a document when it carries a totals block. */
-function hasTotals(text, settings) {
-    return containsAny(text, settings.totalsTerms)
-        || matchesAny(text, settings.totalsPatterns);
+/** Read the page number from a "Page 1 of 3" style marker, if there is one. */
+function readPageNumber(text, pattern) {
+    const match = pattern && normalise(text).match(new RegExp(pattern, "i"));
+
+    return match ? Number(match[1]) : null;
 }
 
-/** Read a "Page 1 of 3" style marker, if the page carries one. */
-function readPageMarker(text, pattern) {
-    if (!pattern) {
-        return null;
-    }
-
-    const match = normalise(text).match(new RegExp(pattern, "i"));
-
-    if (!match) {
-        return null;
-    }
-
-    return {
-        page: Number(match[1]),
-        of: Number(match[2])
-    };
-}
-
-/** Read the first invoice number the page shows, if any. */
+/**
+ * Read the first invoice number the page shows, if any.
+ *
+ * The patterns are written in upper case but have to run case-insensitively,
+ * because a real invoice says "INVOICE NO" as often as "Invoice no". That lets
+ * the capture swallow ordinary words - "Invoice No: not supplied" would yield
+ * "NOT" - so an invoice number has to carry at least one digit.
+ */
 function readInvoiceNumber(text, patterns = []) {
     for (const pattern of patterns) {
         const match = text.match(new RegExp(pattern, "i"));
 
-        if (match?.[1]) {
+        if (match?.[1] && /\d/.test(match[1])) {
             return match[1].toUpperCase().trim();
         }
     }
@@ -92,14 +68,13 @@ function readInvoiceNumber(text, patterns = []) {
  *
  * Anything else is a continuation of the document in progress.
  */
-export function splitIntoDocuments(pages, spec = {}) {
-    const settings = { ...DEFAULT_SPLIT, ...spec };
-
+function splitIntoDocuments(pages, settings) {
     const marks = pages.map(page => ({
         num: page.num,
-        marker: readPageMarker(page.text, settings.pageMarkerPattern),
+        pageNumber: readPageNumber(page.text, settings.pageMarkerPattern),
         invoiceNo: readInvoiceNumber(page.text, settings.invoiceNumberPatterns),
-        hasTotals: hasTotals(page.text, settings)
+        // A page ends a document when it carries a totals block.
+        hasTotals: matchesAny(page.text, settings.totalsPatterns)
     }));
 
     const groups = [];
@@ -110,7 +85,7 @@ export function splitIntoDocuments(pages, spec = {}) {
 
         const startsNewDocument =
             !current
-            || mark.marker?.page === 1
+            || mark.pageNumber === 1
             || (mark.invoiceNo && current.invoiceNo && mark.invoiceNo !== current.invoiceNo)
             || (previous?.hasTotals && Boolean(mark.invoiceNo));
 
@@ -126,10 +101,14 @@ export function splitIntoDocuments(pages, spec = {}) {
 
         current.pages.push(mark.num);
         current.invoiceNo = current.invoiceNo ?? mark.invoiceNo;
-        current.hasTotals = current.hasTotals || mark.hasTotals;
+
+        // The last page wins, not any page: the test is whether the document
+        // ENDS on a totals block. A group that totals on page 1 and then picks
+        // up trailing pages has a boundary in the wrong place.
+        current.hasTotals = mark.hasTotals;
     }
 
-    return { groups, marks };
+    return groups;
 }
 
 /**
@@ -138,7 +117,7 @@ export function splitIntoDocuments(pages, spec = {}) {
  * block. Anything less and the container goes to review whole - half an
  * invoice posted as a bill is far worse than a human opening a PDF.
  */
-export function assessSplit(groups) {
+function assessSplit(groups) {
     const named = groups.filter(group => group.invoiceNo).length;
     const withTotals = groups.filter(group => group.hasTotals).length;
 
@@ -189,7 +168,14 @@ export default function triageContainer({ pages = [], filename = "" }, rules = {
         }
     }
 
-    const minPages = rules.split?.minPages ?? DEFAULT_MIN_PAGES;
+    // The patterns live in company_aliases.json. A copy of them here would be
+    // the one that rots, so there is no fallback: a missing block is a broken
+    // install, not a reason to guess.
+    if (!rules.split) {
+        throw new Error("containerRules.split is missing from company_aliases.json");
+    }
+
+    const minPages = rules.split.minPages;
 
     if (pages.length < minPages) {
         return {
@@ -200,7 +186,7 @@ export default function triageContainer({ pages = [], filename = "" }, rules = {
         };
     }
 
-    const { groups } = splitIntoDocuments(pages, rules.split);
+    const groups = splitIntoDocuments(pages, rules.split);
     const quality = assessSplit(groups);
 
     if (quality.clean) {

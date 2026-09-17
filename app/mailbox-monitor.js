@@ -1,9 +1,10 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import fs from "fs/promises";
+import path from "path";
 import "dotenv/config";
 import matchFileRules from "./doc-rule-matcher.js";
-import readPdfText from "./pdf-text.js";
+import readPdfText, { pagesText } from "./pdf-text.js";
 import triageContainer from "./doc-splitter.js";
 import extractPdfPages from "./pdf-pages.js";
 import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
@@ -35,6 +36,14 @@ try {
         JSON.stringify(uidStore, null, 2)
     );
 }
+
+// Documents already emailed to Xero, keyed mailbox|uid|filename, so a replay
+// of a part-processed message cannot bill the same document twice. Entries are
+// dropped the moment their uid is committed, so this never grows.
+// The key cannot collide with the mailbox addresses beside it.
+uidStore._sent ??= {};
+
+const sentStore = uidStore._sent;
 
 // create and attachments folder
 await fs.mkdir(attachmentsPath, { recursive: true });
@@ -71,6 +80,8 @@ async function monitorMailbox(account) {
     const user = process.env[account.userEnv];
     const pass = process.env[account.passEnv];
     const host = process.env[account.hostEnv];
+
+    const sentKey = (uid, filename) => `${user}|${uid}|${filename}`;
 
     const hasSavedUid = Object.hasOwn(uidStore, user);
     let lastUid = uidStore[user] ?? 0;
@@ -121,7 +132,7 @@ async function monitorMailbox(account) {
         void drainMailbox();
     });
 
-    async function processMessage(source) {
+    async function processMessage(source, uid) {
         const parsed = await simpleParser(source);
 
         // Filter out PDF attachments from the email
@@ -134,15 +145,37 @@ async function monitorMailbox(account) {
         const senderEmail = parsed.from?.value?.[0]?.address ?? "";
 
         for (const attachment of pdfAttachments) {
-            await processAttachment(attachment, parsed, senderEmail);
+            await processAttachment(attachment, parsed, senderEmail, uid);
         }
     }
 
     /*
      * One attachment can hold one document or twenty-two. Read its text once,
      * decide what it is, then route each document it turns out to contain.
+     *
+     * Nothing in here is allowed to throw. A PDF this process cannot read is a
+     * file for a human, not a reason to stop the mailbox: the uid only advances
+     * once the message is done, so an escaping error would re-fetch the same
+     * message forever and no later email would ever be seen.
      */
-    async function processAttachment(attachment, parsed, senderEmail) {
+    async function processAttachment(attachment, parsed, senderEmail, uid) {
+        try {
+            await triageAttachment(attachment, parsed, senderEmail, uid);
+        } catch (error) {
+            console.error(`Failed processing ${attachment.filename}:`, error);
+
+            await save_file_for_review(
+                user,
+                { status: "failed_to_process", error: error.message },
+                parsed,
+                attachment
+            ).catch(saveError => {
+                console.error(`Could not save for review either:`, saveError);
+            });
+        }
+    }
+
+    async function triageAttachment(attachment, parsed, senderEmail, uid) {
         const label = attachment.filename ?? "attachment.pdf";
 
         const container = await readPdfText(attachment);
@@ -187,7 +220,7 @@ async function monitorMailbox(account) {
                 triage.groups.length
             );
 
-            await routeDocument(document, parsed, senderEmail, { isSplit });
+            await routeDocument(document, parsed, senderEmail, { isSplit, uid });
         }
     }
 
@@ -197,9 +230,7 @@ async function monitorMailbox(account) {
      * cut from the original, because Xero wants one file per bill.
      */
     async function buildDocument(attachment, container, pageNumbers, index, total) {
-        const text = pageNumbers
-            .map(num => container.pages.find(page => page.num === num)?.text ?? "")
-            .join("\n\n");
+        const text = pagesText(container, pageNumbers);
 
         if (total === 1) {
             return { ...attachment, text, pageNumbers };
@@ -216,21 +247,41 @@ async function monitorMailbox(account) {
         };
     }
 
-    async function routeDocument(document, parsed, senderEmail, { isSplit }) {
+    async function routeDocument(document, parsed, senderEmail, { isSplit, uid }) {
         const result = await matchFileRules(document, { from: senderEmail });
 
         switch (result.status) {
-            case "matched":
-                await save_file_matched(user, result, parsed, document);
-
+            case "matched": {
                 // A wrong page boundary would post a wrong bill, so documents
                 // cut out of a batch are held back until autoSendSplit is on.
+                // They go to review, not to the sent folder, or nothing tells
+                // a held document from a delivered one.
                 if (isSplit && !containerRules.autoSendSplit) {
+                    await save_file_for_review(
+                        user,
+                        { status: "held_split", reason: `matched ${result.company.companyName}` },
+                        parsed,
+                        document
+                    );
+
                     console.warn(
                         `Split document ${document.filename} matched ` +
                         `${result.company.companyName} but was not sent ` +
                         `(containerRules.autoSendSplit is off)`
                     );
+                    break;
+                }
+
+                await save_file_matched(user, result, parsed, document);
+
+                const key = sentKey(uid, document.filename);
+
+                // The uid only advances once every document in the message is
+                // done, so a failure on document 7 of 17 replays the whole
+                // email. Without this ledger, documents 1-6 would be billed a
+                // second time.
+                if (sentStore[key]) {
+                    console.log(`Already sent ${document.filename} from uid ${uid}, skipping`);
                     break;
                 }
 
@@ -241,8 +292,12 @@ async function monitorMailbox(account) {
                     xeroMailbox: result.company.xeroEmail
                 });
 
+                sentStore[key] = true;
+                await saveUidStore();
+
                 console.log(`Sent ${document.filename} to ${result.company.companyName}`);
                 break;
+            }
 
             case "ignore":
                 console.log(`Ignored ${document.filename}: ${result.rule}`);
@@ -292,11 +347,19 @@ async function monitorMailbox(account) {
 
                     // A missing message was deleted between search and fetch.
                     if (message) {
-                        await processMessage(message.source);
+                        await processMessage(message.source, uid);
                     }
 
                     lastUid = uid;
                     uidStore[user] = lastUid;
+
+                    // The message is committed, so its send ledger is spent.
+                    for (const key of Object.keys(sentStore)) {
+                        if (key.startsWith(`${user}|${uid}|`)) {
+                            delete sentStore[key];
+                        }
+                    }
+
                     await saveUidStore();
                 }
             } while (processAgain);
@@ -361,10 +424,8 @@ function getSmtpFromEnv() {
 
 /** "invoices.pdf" with 17 documents → "invoices_04-of-17.pdf" */
 function numberedFilename(filename = "attachment.pdf", index, total) {
-    const dot = filename.lastIndexOf(".");
-    const stem = dot > 0 ? filename.slice(0, dot) : filename;
-    const extension = dot > 0 ? filename.slice(dot) : ".pdf";
-    const width = String(total).length;
+    const { name, ext } = path.parse(filename);
+    const number = String(index).padStart(String(total).length, "0");
 
-    return `${stem}_${String(index).padStart(width, "0")}-of-${total}${extension}`;
+    return `${name}_${number}-of-${total}${ext || ".pdf"}`;
 }

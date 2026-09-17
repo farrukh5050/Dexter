@@ -584,14 +584,12 @@
         "inv\\s*(?:no\\.?|#)\\s*[:\\-~=]*\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",
         "\\b(INVOICE[\\-\\s]?\\d{2,6})\\b"
       ],
-      "totalsTerms": [
-        "total due",
-        "amount due",
-        "balance due",
-        "total payable",
-        "invoice total"
-      ],
       "totalsPatterns": [
+        "total\\s+due",
+        "amount\\s+due",
+        "balance\\s+due",
+        "total\\s+payable",
+        "invoice\\s+total",
         "total\\s*[£$€]?\\s*[\\d,]+\\.\\d{2}"
       ]
     },

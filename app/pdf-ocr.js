@@ -104,7 +104,6 @@ function buildOcrResult(pages) {
         // Per-page results, so a caller that only asked for some pages can
         // merge them back against the pages that already had embedded text.
         pages,
-        text: pages.map(page => page.text).join("\n\n"),
         confidence: pages.length > 0 ? totalConfidence / pages.length : 0
     };
 }

@@ -7,7 +7,7 @@ const OCR_MIN_CHARS = 30;
  * Count characters that could plausibly be document content:
  * letters and digits only, whitespace and punctuation discarded.
  */
-export function countUseful(value = "") {
+function countUseful(value = "") {
     return String(value)
         .replace(/\s+/g, "")
         .replace(/[^\p{L}\p{N}]/gu, "")

@@ -10,16 +10,21 @@ import fs from "fs/promises";
 import path from "path";
 import matchFileRules from "./doc-rule-matcher.js";
 import readPdfText, { pagesText } from "./pdf-text.js";
-import triageContainer from "./doc-splitter.js";
+import triageContainer, { ignoredByFilename } from "./doc-splitter.js";
 import { terminateOcrWorker } from "./pdf-ocr.js";
 
-const pdfPath = process.argv[2];
+// A bare filename means the review folder, where the files worth a second look
+// already sit. path.resolve leaves an absolute path alone, so both still work.
+const reviewPath = path.join(import.meta.dirname, "../attachments/review/needs_review");
+
 const senderEmail = process.argv[3] ?? "";
 
-if (!pdfPath) {
+if (!process.argv[2]) {
     console.error("Usage: node app/pdf-ocr-smoke-test.js <file.pdf> [sender@example.com]");
     process.exit(1);
 }
+
+const pdfPath = path.resolve(reviewPath, process.argv[2]);
 
 const config = JSON.parse(
     await fs.readFile(
@@ -31,6 +36,15 @@ const config = JSON.parse(
 const containerRules = config.containerRules ?? {};
 
 const filename = path.basename(pdfPath);
+
+// ── stage: filename alone ────────────────────────────────────────────────────
+const ignoredTerm = ignoredByFilename(filename, containerRules);
+
+if (ignoredTerm) {
+    console.log(`Ignored on filename: matches "${ignoredTerm}" - the PDF is never opened`);
+    process.exit(0);
+}
+
 const content = await fs.readFile(pdfPath);
 const file = { content, filename, name: filename };
 
@@ -45,6 +59,13 @@ console.log(`useful chars: ${container.usefulChars}`);
 for (const page of container.pages) {
     const chars = page.text.replace(/\s+/g, "").length;
     console.log(`  page ${page.num}: ${chars} chars via ${page.textSource}`);
+}
+
+// The text the rules actually see. A rule that should have matched and did not
+// is nearly always a spelling the OCR mangled, so print it rather than guess.
+for (const page of container.pages) {
+    console.log(`\n--- page ${page.num} text (${page.textSource}) ---\n`);
+    console.log(page.text);
 }
 
 // ── stage: what does this container hold ─────────────────────────────────────

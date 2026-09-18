@@ -32,6 +32,24 @@ function matchesAny(text, patterns = []) {
     return patterns.some(pattern => new RegExp(pattern, "i").test(text));
 }
 
+/**
+ * Some documents are known from their filename alone - a repayment report, a
+ * BACS autopay listing. Checked before the PDF is opened, so a 40-page scan
+ * that was never going to be a bill costs nothing.
+ *
+ * Separators are levelled first, so a term is written the natural way
+ * ("bacs autopay") and still matches "BACS_AUTOPAY" or "bacs-autopay".
+ *
+ * Returns the term that matched, for the log, or null.
+ */
+export function ignoredByFilename(filename = "", rules = {}) {
+    const haystack = normalise(String(filename).replace(/[_\-.]+/g, " "));
+
+    return (rules.filenameIgnores ?? []).find(
+        term => normalise(term).length > 0 && haystack.includes(normalise(term))
+    ) ?? null;
+}
+
 /** Read the page number from a "Page 1 of 3" style marker, if there is one. */
 function readPageNumber(text, pattern) {
     const match = pattern && normalise(text).match(new RegExp(pattern, "i"));
@@ -47,7 +65,7 @@ function readPageNumber(text, pattern) {
  * the capture swallow ordinary words - "Invoice No: not supplied" would yield
  * "NOT" - so an invoice number has to carry at least one digit.
  */
-function readInvoiceNumber(text, patterns = []) {
+export function readInvoiceNumber(text, patterns = []) {
     for (const pattern of patterns) {
         const match = text.match(new RegExp(pattern, "i"));
 
@@ -142,7 +160,7 @@ function assessSplit(groups) {
  *   { kind: "batch",  action: "split",   groups: [[1], [2, 3], …] }
  *   { kind: "batch",  action: "review" }            boundaries unresolved
  */
-export default function triageContainer({ pages = [], filename = "" }, rules = {}) {
+export default function triageContainer({ pages = [], filename = "" }, rules) {
     const allPages = pages.map(page => page.num);
     const fullText = pages.map(page => page.text).join("\n\n");
 

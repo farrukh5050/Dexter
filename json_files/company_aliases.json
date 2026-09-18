@@ -208,6 +208,14 @@
         {
           "match": "contains",
           "text": "53093530"
+        },
+        {
+          "match": "contains",
+          "text": "20-55-41"
+        },
+        {
+          "match": "contains",
+          "text": "9073 3032"
         }
       ]
     },
@@ -235,6 +243,18 @@
         {
           "match": "whole_word",
           "text": "plate no"
+        },
+        {
+          "match": "contains",
+          "text": "Licence Revocations"
+        },
+        {
+          "match": "contains",
+          "text": "Licence Suspended"
+        },
+        {
+          "match": "contains",
+          "text": "UTTLESFORD DISTRICT COUNCIL"
         }
       ]
     },
@@ -274,6 +294,30 @@
         {
           "match": "contains",
           "text": "notice to keeper"
+        },
+        {
+          "match": "contains",
+          "text": "Transport for London"
+        },
+        {
+          "match": "contains",
+          "text": "PCN Reference"
+        },
+        {
+          "match": "contains",
+          "text": "Notice of Intended Prosecution"
+        },
+        {
+          "match": "contains",
+          "text": "speed limit"
+        },
+        {
+          "match": "contains",
+          "text": "PARKING CHARGE"
+        },
+        {
+          "match": "contains",
+          "text": "Contravention"
         }
       ]
     },
@@ -555,6 +599,12 @@
     }
   ],
   "containerRules": {
+    "filenameIgnores": [
+      "repayment report",
+      "bacs autopay",
+      "departmental summary",
+      "online receipts for invoice"
+    ],
     "reports": [
       {
         "name": "Trip Stop Report",
@@ -578,7 +628,7 @@
     ],
     "split": {
       "minPages": 3,
-      "pageMarkerPattern": "page\\s+(\\d+)\\s+of\\s+(\\d+)",
+      "pageMarkerPattern": "page\\s+(\\d+)\\s+of\\s+\\d+",
       "invoiceNumberPatterns": [
         "[a-z]?nvoice\\s*(?:number|no\\.?|#)\\s*[:\\-~=]*\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",
         "inv\\s*(?:no\\.?|#)\\s*[:\\-~=]*\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",

@@ -5,11 +5,11 @@ import path from "path";
 import "dotenv/config";
 import matchFileRules from "./doc-rule-matcher.js";
 import readPdfText, { pagesText } from "./pdf-text.js";
-import triageContainer from "./doc-splitter.js";
+import triageContainer, { ignoredByFilename } from "./doc-splitter.js";
 import extractPdfPages from "./pdf-pages.js";
 import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
 import { createSmtpTransport, sendAttachmentToXero } from "./email-to-xero.js"
-
+import { alreadySent, ledgerKey, loadLedger, recordSent } from "./sent-ledger.js";
 
 let uidStore = {};
 let uidSaveQueue = Promise.resolve();
@@ -37,13 +37,10 @@ try {
     );
 }
 
-// Documents already emailed to Xero, keyed mailbox|uid|filename, so a replay
-// of a part-processed message cannot bill the same document twice. Entries are
-// dropped the moment their uid is committed, so this never grows.
-// The key cannot collide with the mailbox addresses beside it.
-uidStore._sent ??= {};
 
-const sentStore = uidStore._sent;
+// Every document already emailed to Xero, so a chase, a colleague's forward
+// or a replay of a part-processed message cannot bill the same invoice twice.
+await loadLedger();
 
 // create and attachments folder
 await fs.mkdir(attachmentsPath, { recursive: true });
@@ -80,8 +77,6 @@ async function monitorMailbox(account) {
     const user = process.env[account.userEnv];
     const pass = process.env[account.passEnv];
     const host = process.env[account.hostEnv];
-
-    const sentKey = (uid, filename) => `${user}|${uid}|${filename}`;
 
     const hasSavedUid = Object.hasOwn(uidStore, user);
     let lastUid = uidStore[user] ?? 0;
@@ -159,10 +154,65 @@ async function monitorMailbox(account) {
      * message forever and no later email would ever be seen.
      */
     async function processAttachment(attachment, parsed, senderEmail, uid) {
+        const label = attachment.filename ?? "attachment.pdf";
+
         try {
-            await triageAttachment(attachment, parsed, senderEmail, uid);
+            // Before the PDF is opened: some things are known from the name
+            // alone, and reading them costs minutes of OCR for nothing.
+            const ignoredTerm = ignoredByFilename(label, containerRules);
+
+            if (ignoredTerm) {
+                console.log(`Ignored ${label}: filename matches "${ignoredTerm}"`);
+
+                return;
+            }
+
+            const container = await readPdfText(attachment);
+
+            const triage = triageContainer(
+                { pages: container.pages, filename: label },
+                containerRules
+            );
+
+            console.log(
+                `${label}: ${container.total} pages, ${triage.kind}/${triage.action} - ${triage.reason}`
+            );
+
+            // An operational report is discarded whole. Splitting a 60-page
+            // trip report would produce 60 pieces of garbage.
+            if (triage.action === "ignore") {
+                return;
+            }
+
+            // A payment chase holds invoices that are probably already posted,
+            // so it never auto-posts. A human decides.
+            if (triage.action === "review") {
+                await save_file_for_review(
+                    user,
+                    { status: "needs_review", reason: triage.reason },
+                    parsed,
+                    attachment
+                );
+
+                console.warn(`Held ${label} for review: ${triage.reason}`);
+                return;
+            }
+
+            const isSplit = triage.groups.length > 1;
+
+            for (const [index, pageNumbers] of triage.groups.entries()) {
+                const document = await buildDocument(
+                    attachment,
+                    container,
+                    pageNumbers,
+                    index,
+                    triage.groups.length
+                );
+
+                await routeDocument(document, parsed, senderEmail, { isSplit, uid });
+            }
         } catch (error) {
-            console.error(`Failed processing ${attachment.filename}:`, error);
+            console.error(`Failed processing ${label}:`, error);
 
             await save_file_for_review(
                 user,
@@ -172,55 +222,6 @@ async function monitorMailbox(account) {
             ).catch(saveError => {
                 console.error(`Could not save for review either:`, saveError);
             });
-        }
-    }
-
-    async function triageAttachment(attachment, parsed, senderEmail, uid) {
-        const label = attachment.filename ?? "attachment.pdf";
-
-        const container = await readPdfText(attachment);
-
-        const triage = triageContainer(
-            { pages: container.pages, filename: label },
-            containerRules
-        );
-
-        console.log(
-            `${label}: ${container.total} pages, ${triage.kind}/${triage.action} - ${triage.reason}`
-        );
-
-        // An operational report is discarded whole. Splitting a 60-page trip
-        // report would produce 60 pieces of garbage.
-        if (triage.action === "ignore") {
-            return;
-        }
-
-        // A payment chase holds invoices that are probably already posted, so
-        // it never auto-posts. A human decides.
-        if (triage.action === "review") {
-            await save_file_for_review(
-                user,
-                { status: "needs_review", reason: triage.reason },
-                parsed,
-                attachment
-            );
-
-            console.warn(`Held ${label} for review: ${triage.reason}`);
-            return;
-        }
-
-        const isSplit = triage.groups.length > 1;
-
-        for (const [index, pageNumbers] of triage.groups.entries()) {
-            const document = await buildDocument(
-                attachment,
-                container,
-                pageNumbers,
-                index,
-                triage.groups.length
-            );
-
-            await routeDocument(document, parsed, senderEmail, { isSplit, uid });
         }
     }
 
@@ -272,18 +273,38 @@ async function monitorMailbox(account) {
                     break;
                 }
 
-                await save_file_matched(user, result, parsed, document);
+                const key = ledgerKey(
+                    result,
+                    document,
+                    containerRules.split.invoiceNumberPatterns
+                );
 
-                const key = sentKey(uid, document.filename);
+                const sent = alreadySent(key);
 
-                // The uid only advances once every document in the message is
-                // done, so a failure on document 7 of 17 replays the whole
-                // email. Without this ledger, documents 1-6 would be billed a
-                // second time.
-                if (sentStore[key]) {
-                    console.log(`Already sent ${document.filename} from uid ${uid}, skipping`);
+                // Checked before anything is written or sent. A payment chase,
+                // a colleague's forward and a replay of a part-processed
+                // message all arrive here as the same key.
+                if (sent) {
+                    await save_file_for_review(
+                        user,
+                        {
+                            status: "duplicate",
+                            reason:
+                                `already sent as ${sent.filename} ` +
+                                `from ${sent.mailbox} on ${sent.sentAt}`
+                        },
+                        parsed,
+                        document
+                    );
+
+                    console.warn(
+                        `Duplicate ${document.filename}: ${key} ` +
+                        `already sent ${sent.sentAt}`
+                    );
                     break;
                 }
+
+                await save_file_matched(user, result, parsed, document);
 
                 await sendAttachmentToXero({
                     transporter: smtpTransporter,
@@ -292,8 +313,11 @@ async function monitorMailbox(account) {
                     xeroMailbox: result.company.xeroEmail
                 });
 
-                sentStore[key] = true;
-                await saveUidStore();
+                await recordSent(key, {
+                    mailbox: user,
+                    filename: document.filename,
+                    uid
+                });
 
                 console.log(`Sent ${document.filename} to ${result.company.companyName}`);
                 break;
@@ -352,13 +376,6 @@ async function monitorMailbox(account) {
 
                     lastUid = uid;
                     uidStore[user] = lastUid;
-
-                    // The message is committed, so its send ledger is spent.
-                    for (const key of Object.keys(sentStore)) {
-                        if (key.startsWith(`${user}|${uid}|`)) {
-                            delete sentStore[key];
-                        }
-                    }
 
                     await saveUidStore();
                 }

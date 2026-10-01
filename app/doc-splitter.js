@@ -157,7 +157,7 @@ function assessSplit(groups) {
  *   { kind: "report", action: "ignore" }
  *   { kind: "chase",  action: "review" }
  *   { kind: "single", action: "process", groups: [[1, 2]] }
- *   { kind: "batch",  action: "split",   groups: [[1], [2, 3], …] }
+ *   { kind: "batch",  action: "split",   groups: [[1], [2, 3], …], coverPages: [] }
  *   { kind: "batch",  action: "review" }            boundaries unresolved
  */
 export default function triageContainer({ pages = [], filename = "" }, rules) {
@@ -204,7 +204,18 @@ export default function triageContainer({ pages = [], filename = "" }, rules) {
         };
     }
 
-    const groups = splitIntoDocuments(pages, rules.split);
+    let groups = splitIntoDocuments(pages, rules.split);
+    let coverPages = [];
+
+    // A leading page with no invoice number and no totals, ahead of several
+    // invoices, is a cover note - a handwritten summary, a scan header. Only
+    // the first group: a nameless group mid-batch is half an invoice, and with
+    // a single invoice after it the whole PDF goes out as-is anyway.
+    if (!groups[0].invoiceNo && !groups[0].hasTotals && groups.length > 2) {
+        coverPages = groups[0].pages;
+        groups = groups.slice(1);
+    }
+
     const quality = assessSplit(groups);
 
     if (quality.clean) {
@@ -213,8 +224,10 @@ export default function triageContainer({ pages = [], filename = "" }, rules) {
             action: "split",
             reason:
                 `${quality.count} documents across ${pages.length} pages, ` +
-                `all with an invoice number and a totals block`,
-            groups: groups.map(group => group.pages)
+                `all with an invoice number and a totals block` +
+                (coverPages.length ? `, cover page(s) ${coverPages.join(",")} held back` : ""),
+            groups: groups.map(group => group.pages),
+            coverPages
         };
     }
 
@@ -226,6 +239,22 @@ export default function triageContainer({ pages = [], filename = "" }, rules) {
                 `looks like ${quality.count} documents across ${pages.length} pages, ` +
                 `but only ${quality.named} have an invoice number and ` +
                 `${quality.withTotals} have a totals block - not splitting`,
+            groups: [allPages]
+        };
+    }
+
+    // No boundary was readable, but totals on several pages means several
+    // bills whose invoice numbers the OCR lost. Sent whole, that is one Xero
+    // bill for a month of invoices.
+    const totalled = pages.filter(page => matchesAny(page.text, rules.split.totalsPatterns)).length;
+
+    if (totalled > 1) {
+        return {
+            kind: "batch",
+            action: "review",
+            reason:
+                `${totalled} of ${pages.length} pages carry a totals block ` +
+                `but no document boundaries could be read - not sending as one bill`,
             groups: [allPages]
         };
     }

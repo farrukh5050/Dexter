@@ -198,6 +198,21 @@ async function monitorMailbox(account) {
                 return;
             }
 
+            // Not part of any bill, but not thrown away either: a cover note
+            // is sometimes the only place a missing invoice is mentioned.
+            if (triage.coverPages?.length) {
+                await save_file_for_review(
+                    user,
+                    { status: "cover_page" },
+                    parsed,
+                    {
+                        ...attachment,
+                        content: await extractPdfPages(attachment.content, triage.coverPages),
+                        filename: `cover_${attachment.filename}`
+                    }
+                );
+            }
+
             const isSplit = triage.groups.length > 1;
 
             for (const [index, pageNumbers] of triage.groups.entries()) {

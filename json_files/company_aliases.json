@@ -30,7 +30,8 @@
       "id": "streetcars_accounts",
       "companyName": "Streetcars Accounts Limited",
       "names": [
-        "streetcars accounts limited"
+        "streetcars accounts limited",
+        "streetcars accounts"
       ],
       "xeroEmail": "bills.o2gf8b.770875msdxf9g4zu@xerofiles.com"
     },
@@ -628,7 +629,7 @@
     ],
     "split": {
       "minPages": 3,
-      "pageMarkerPattern": "page\\s+(\\d+)\\s+of\\s+\\d+",
+      "pageMarkerPattern": "page\\s+(\\d+)\\s*(?:of|/)\\s*\\d+",
       "invoiceNumberPatterns": [
         "[a-z]?nvoice\\s*(?:number|no\\.?|#)\\s*[:\\-~=]*\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",
         "inv\\s*(?:no\\.?|#)\\s*[:\\-~=]*\\s*([A-Z0-9][A-Z0-9\\-\\/]{2,19})",
@@ -640,7 +641,9 @@
         "balance\\s+due",
         "total\\s+payable",
         "invoice\\s+total",
-        "total\\s*[£$€]?\\s*[\\d,]+\\.\\d{2}"
+        "total\\s*[£$€]?\\s*[\\d,]+\\.\\d{2}",
+        "[£$€]\\s*[\\d,]+\\.\\d{2}\\s+due\\b",
+        "owing\\s*[£$€]?\\s*[\\d,]+\\.\\d{2}"
       ]
     },
     "autoSendSplit": false

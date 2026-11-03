@@ -67,7 +67,7 @@
   .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
   .grid-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px}
   @media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
-  input[type=text],input[type=number],select{
+  input[type=text],input[type=email],input[type=number],select{
     width:100%; background:var(--bg); border:1px solid var(--border);
     color:var(--text); border-radius:8px; padding:8px 10px; font:inherit;
   }
@@ -156,7 +156,7 @@
   }
   .grid-2{gap:18px}
   .grid-3{grid-template-columns:1.2fr .8fr .8fr; gap:18px}
-  input[type=text],input[type=number],select{
+  input[type=text],input[type=email],input[type=number],select{
     background:#1d2226; border-color:#566068; border-radius:3px; padding:8px 9px;
   }
   input:focus,select:focus{
@@ -211,7 +211,7 @@
 
   <div class="empty" id="emptyState">
     <p><strong>No file loaded.</strong></p>
-    <p>Click <em>Open JSON…</em> and choose <code>json_files/company_aliases.json</code>.</p>
+    <p>Click <em>Open file…</em> and choose <code>json_files/company_aliases.json</code>. After that the editor reopens it by itself.</p>
   </div>
 
   <div id="pane-companies" class="tab-pane active"></div>
@@ -241,7 +241,7 @@ const LIST_FIELDS = [
   {key:'vehicleRegs',     label:'Vehicle registrations', ph:'AB12 CDE'},
 ];
 const MATCH_TYPES  = ['contains', 'whole_word']; // only "contains" and "whole_word" is implemented in document-matcher.js
-const ACTION_TYPES = ['route','ignore'];
+const ACTION_TYPES = ['route','ignore','forward'];
 const AUTOLOAD_PATHS = ['../json_files/company_aliases.json','../company_aliases.json'];
 
 // ---- state ---------------------------------------------------------------
@@ -258,14 +258,32 @@ function setStatus(msg,kind=''){ const s=$('#status'); s.textContent=msg; s.clas
 function esc(s){ return (s??'').toString()
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// ---- remembered file -----------------------------------------------------
+// A page cannot open a path by name, but the browser can keep the handle of a
+// file picked once, so after the first Open the editor goes straight back to it.
+function idb(mode, fn){
+  return new Promise((resolve,reject)=>{
+    const open=indexedDB.open('alias-editor',1);
+    open.onupgradeneeded=()=>open.result.createObjectStore('handles');
+    open.onerror=()=>reject(open.error);
+    open.onsuccess=()=>{
+      const tx=open.result.transaction('handles',mode), req=fn(tx.objectStore('handles'));
+      tx.oncomplete=()=>resolve(req.result); tx.onerror=()=>reject(tx.error);
+    };
+  });
+}
+const rememberHandle=h=>idb('readwrite',s=>s.put(h,'config')).catch(()=>{});
+const recallHandle=()=>idb('readonly',s=>s.get('config')).catch(()=>null);
+
 // ---- open / load ---------------------------------------------------------
 async function openFile(){
   if(!supportsFS){ pickViaInput(); return; }
   try{
     const [h] = await window.showOpenFilePicker({
+      startIn: fileHandle || 'desktop',
       types:[{description:'JSON',accept:{'application/json':['.json']}}]
     });
-    fileHandle=h; const f=await h.getFile(); loadText(await f.text(),f.name);
+    fileHandle=h; rememberHandle(h); const f=await h.getFile(); loadText(await f.text(),f.name);
   }catch(e){
     if(e.name==='AbortError') return;
     fileHandle=null; setStatus('Using basic picker (save will download)','warn'); pickViaInput();
@@ -293,10 +311,21 @@ function loadText(text,name){
   }catch(e){ setStatus('Invalid JSON: '+e.message,'err'); }
 }
 async function reload(){
-  if(fileHandle){ const f=await fileHandle.getFile(); loadText(await f.text(),f.name); }
-  else setStatus('Nothing to reload — open a file first','warn');
+  if(!fileHandle){ setStatus('Nothing to reload — open a file first','warn'); return; }
+  if(await fileHandle.requestPermission({mode:'readwrite'})!=='granted'){ setStatus('Permission to the file was refused','err'); return; }
+  const f=await fileHandle.getFile(); loadText(await f.text(),f.name);
 }
 async function tryAutoLoad(){
+  const h=supportsFS && await recallHandle();
+  if(h){
+    fileHandle=h;
+    // Reading a remembered file needs a click unless the browser kept the grant.
+    if(await h.queryPermission({mode:'readwrite'})==='granted'){ await reload(); return; }
+    $('#fileName').textContent=h.name+' — click Reload to open';
+    $('#emptyState').innerHTML=`<p><button class="primary" id="reopenBtn">Open ${esc(h.name)}</button></p>`;
+    $('#reopenBtn').onclick=reload;
+    return;
+  }
   if(location.protocol==='file:') return;
   for(const p of AUTOLOAD_PATHS){
     try{ const r=await fetch(p,{cache:'no-store'});
@@ -318,6 +347,7 @@ async function save(){
         suggestedName:'company_aliases.json',
         types:[{description:'JSON',accept:{'application/json':['.json']}}]
       });
+      rememberHandle(fileHandle);
     }
     const perm=await fileHandle.requestPermission({mode:'readwrite'});
     if(perm!=='granted') throw new Error('write permission denied');
@@ -368,6 +398,8 @@ function refreshWarn(){
   if(dup.length) msgs.push('Duplicate company IDs: '+dup.join(', '));
   if(badRefs.length) msgs.push('Sender rules point to unknown company IDs: '+badRefs.join(', '));
   if(saBadRefs.length) msgs.push('Supplier accounts point to unknown company IDs: '+saBadRefs.join(', '));
+  const noTarget=(state.data.documentRules||[]).filter(d=>d.action==='forward' && !d.forwardTo).map(d=>d.name||'(unnamed)');
+  if(noTarget.length) msgs.push('Forward rules with no address (saved, not forwarded): '+noTarget.join(', '));
   if(msgs.length){ bar.style.display='block'; bar.textContent='⚠ '+msgs.join('  |  '); }
   else bar.style.display='none';
 }
@@ -485,10 +517,15 @@ function docRuleHtml(d,di){
       <button class="danger small" data-act="dr-rule-del" data-di="${di}" data-ri="${ri}">✕</button>
     </div>`).join('');
   const title=d.name||'(unnamed rule)';
+  const forwardTo=d.action!=='forward'?'':`
+      <div class="field"><label>Forward to (separate several with commas)</label>
+        <input type="email" multiple value="${esc(d.forwardTo)}" placeholder="accounts@streetcars.co.uk"
+          data-act="dr-forward" data-di="${di}"></div>`;
   return `<div class="card">
     <div class="card-head"><span class="title">${esc(title)}</span>
       <button class="danger small" data-act="dr-del" data-di="${di}">Delete group</button></div>
     <div class="card-body">
+      ${forwardTo}
       <div class="grid-3">
         <div class="field"><label>Name</label>
           <input type="text" value="${esc(d.name)}" placeholder="Ignore Statements"
@@ -645,12 +682,13 @@ $('#pane-documentRules').addEventListener('input',e=>{
   const d=state.data.documentRules[+t.dataset.di];
   if(act==='dr-name'){ d.name=t.value; markDirty(); t.closest('.card').querySelector('.title').textContent=t.value||'(unnamed rule)'; }
   else if(act==='dr-threshold'){ d.matchThreshold=t.value===''?'':Number(t.value); markDirty(); }
+  else if(act==='dr-forward'){ d.forwardTo=t.value.trim(); markDirty(); refreshWarn(); }
   else if(act==='dr-text'){ d.rules[+t.dataset.ri].text=t.value; markDirty(); }
 });
 $('#pane-documentRules').addEventListener('change',e=>{
   const t=e.target, act=t.dataset.act; if(!act) return;
   const d=state.data.documentRules[+t.dataset.di];
-  if(act==='dr-action'){ d.action=t.value; markDirty(); }
+  if(act==='dr-action'){ d.action=t.value; d.forwardTo ??= ''; markDirty(); renderDocumentRules(); refreshWarn(); }
   else if(act==='dr-match'){ d.rules[+t.dataset.ri].match=t.value; markDirty(); }
 });
 $('#pane-documentRules').addEventListener('click',e=>{

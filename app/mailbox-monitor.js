@@ -2,13 +2,14 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import fs from "fs/promises";
 import path from "path";
+import { createHash } from "crypto";
 import "dotenv/config";
-import matchFileRules from "./doc-rule-matcher.js";
+import matchFileRules, { findForwardRule } from "./doc-rule-matcher.js";
 import readPdfText, { pagesText } from "./pdf-text.js";
 import triageContainer, { ignoredByFilename } from "./doc-splitter.js";
 import extractPdfPages from "./pdf-pages.js";
-import { save_file_matched, save_file_for_review } from "./attachment-storage.js";
-import { createSmtpTransport, sendAttachmentToXero } from "./email-to-xero.js"
+import { save_file_matched, save_file_for_review, save_file_forwarded } from "./attachment-storage.js";
+import { createSmtpTransport, forwardAttachment, sendAttachmentToXero } from "./email-to-xero.js"
 import { alreadySent, ledgerKey, loadLedger, recordSent } from "./sent-ledger.js";
 
 let uidStore = {};
@@ -169,6 +170,16 @@ async function monitorMailbox(account) {
 
             const container = await readPdfText(attachment);
 
+            // Remittances and purchase orders are not bills. They go whole to
+            // a person, and before triage, which would take a multi-page
+            // remittance for a batch of invoices.
+            const forwardRule = findForwardRule(pagesText(container, container.pages.map(page => page.num)));
+
+            if (forwardRule) {
+                await forwardDocument(forwardRule, attachment, parsed, uid);
+                return;
+            }
+
             const triage = triageContainer(
                 { pages: container.pages, filename: label },
                 containerRules
@@ -238,6 +249,42 @@ async function monitorMailbox(account) {
                 console.error(`Could not save for review either:`, saveError);
             });
         }
+    }
+
+    async function forwardDocument(rule, attachment, parsed, uid) {
+        const label = attachment.filename ?? "attachment.pdf";
+
+        // The same remittance arrives in several mailboxes. The first copy was
+        // saved and forwarded, so a later one is dropped with only a log line.
+        const key = `forward|${createHash("sha256").update(attachment.content).digest("hex")}`;
+        const sent = alreadySent(key);
+
+        if (sent) {
+            console.log(`Duplicate ${label}: already forwarded from ${sent.mailbox} on ${sent.sentAt}`);
+            return;
+        }
+
+        // Not work for anyone to review, but kept, forwarded or not.
+        await save_file_forwarded(user, rule.name, parsed, attachment);
+
+        if (!rule.forwardTo) {
+            console.warn(`${label} is a ${rule.name} but the rule has no forwardTo - saved, not forwarded`);
+            return;
+        }
+
+        await forwardAttachment({
+            transporter: smtpTransporter,
+            senderEmail: smtp_account.user,
+            to: rule.forwardTo,
+            attachment,
+            parsed,
+            mailbox: user,
+            ruleName: rule.name
+        });
+
+        await recordSent(key, { mailbox: user, filename: label, uid });
+
+        console.log(`Forwarded ${label} (${rule.name}) to ${rule.forwardTo}`);
     }
 
     /*

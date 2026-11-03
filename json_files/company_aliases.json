@@ -4,7 +4,8 @@
       "id": "streetrax",
       "companyName": "Streetrax Limited",
       "names": [
-        "streetrax limited"
+        "streetrax limited",
+        "streetrax"
       ],
       "xeroEmail": "bills.o1dt37.bjtkqomqus5oid8i@xerofiles.com"
     },
@@ -323,9 +324,9 @@
       ]
     },
     {
-      "name": "Ignore Remittance Advice",
-      "action": "ignore",
-      "matchThreshold": 3,
+      "name": "Remittance Advice",
+      "action": "forward",
+      "matchThreshold": 2,
       "rules": [
         {
           "match": "whole_word",
@@ -333,19 +334,7 @@
         },
         {
           "match": "whole_word",
-          "text": "total amount paid"
-        },
-        {
-          "match": "whole_word",
-          "text": "remit date"
-        },
-        {
-          "match": "whole_word",
-          "text": "payment made via"
-        },
-        {
-          "match": "whole_word",
-          "text": "date paid"
+          "text": "payment advice"
         },
         {
           "match": "whole_word",
@@ -353,7 +342,7 @@
         },
         {
           "match": "whole_word",
-          "text": "payment amount"
+          "text": "date paid"
         },
         {
           "match": "whole_word",
@@ -361,7 +350,27 @@
         },
         {
           "match": "whole_word",
+          "text": "total amount paid"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment amount"
+        },
+        {
+          "match": "whole_word",
           "text": "paid to account"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment made via"
+        },
+        {
+          "match": "whole_word",
+          "text": "remit date"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment reference"
         },
         {
           "match": "whole_word",
@@ -369,11 +378,172 @@
         },
         {
           "match": "whole_word",
-          "text": "payment advice"
+          "text": "will be transferred"
+        },
+        {
+          "match": "whole_word",
+          "text": "bacs"
+        },
+        {
+          "match": "whole_word",
+          "text": "your reference"
+        },
+        {
+          "match": "whole_word",
+          "text": "our reference"
+        },
+        {
+          "match": "whole_word",
+          "text": "your ref"
+        },
+        {
+          "match": "whole_word",
+          "text": "supplier number"
+        },
+        {
+          "match": "whole_word",
+          "text": "supplier no"
         },
         {
           "match": "contains",
           "text": "4000110418"
+        }
+      ],
+      "forwardTo": "remittances@streetcars.co.uk",
+      "requiredTerms": [
+        "remittance"
+      ],
+      "excludeThreshold": 2,
+      "excludeRules": [
+        {
+          "match": "whole_word",
+          "text": "invoice number"
+        },
+        {
+          "match": "whole_word",
+          "text": "invoice date"
+        },
+        {
+          "match": "whole_word",
+          "text": "due date"
+        },
+        {
+          "match": "whole_word",
+          "text": "tax point"
+        },
+        {
+          "match": "whole_word",
+          "text": "amount due"
+        },
+        {
+          "match": "whole_word",
+          "text": "total due"
+        },
+        {
+          "match": "whole_word",
+          "text": "balance due"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment terms"
+        },
+        {
+          "match": "whole_word",
+          "text": "application for payment"
+        },
+        {
+          "match": "whole_word",
+          "text": "not a tax invoice"
+        },
+        {
+          "match": "whole_word",
+          "text": "statement"
+        }
+      ]
+    },
+    {
+      "name": "Purchase Order",
+      "action": "forward",
+      "forwardTo": "nabil@streetcars.co.uk",
+      "requiredTerms": [
+        "purchase order"
+      ],
+      "matchThreshold": 1,
+      "rules": [
+        {
+          "match": "whole_word",
+          "text": "order number"
+        },
+        {
+          "match": "whole_word",
+          "text": "order date"
+        },
+        {
+          "match": "whole_word",
+          "text": "order details"
+        },
+        {
+          "match": "whole_word",
+          "text": "order totals"
+        },
+        {
+          "match": "whole_word",
+          "text": "conditions of order"
+        },
+        {
+          "match": "whole_word",
+          "text": "deliver to"
+        },
+        {
+          "match": "whole_word",
+          "text": "delivery address"
+        },
+        {
+          "match": "whole_word",
+          "text": "delivery location"
+        },
+        {
+          "match": "whole_word",
+          "text": "delivery date"
+        }
+      ],
+      "excludeThreshold": 1,
+      "excludeRules": [
+        {
+          "match": "whole_word",
+          "text": "invoice number"
+        },
+        {
+          "match": "whole_word",
+          "text": "invoice date"
+        },
+        {
+          "match": "whole_word",
+          "text": "tax point"
+        },
+        {
+          "match": "whole_word",
+          "text": "due date"
+        },
+        {
+          "match": "whole_word",
+          "text": "amount due"
+        },
+        {
+          "match": "whole_word",
+          "text": "total due"
+        },
+        {
+          "match": "whole_word",
+          "text": "balance due"
+        },
+        {
+          "match": "whole_word",
+          "text": "remittance advice"
+        },
+        {
+          "match": "whole_word",
+          "text": "payment date"
         }
       ]
     },
@@ -420,10 +590,6 @@
         {
           "match": "whole_word",
           "text": "credit memo"
-        },
-        {
-          "match": "whole_word",
-          "text": "purchase order"
         }
       ]
     },

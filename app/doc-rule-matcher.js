@@ -208,11 +208,20 @@ function matchesDocumentCheck(text, check) {
 }
 
 /**
+ * A remittance or purchase order: not a bill, so it goes whole to the
+ * rule's forwardTo mailbox instead of to Xero.
+ */
+export function findForwardRule(text) {
+    return findDocumentRule(text, "forward")?.rule ?? null;
+}
+
+/**
  * Find a matching document rule by action.
  *
  * Example actions:
  * - ignore
  * - route
+ * - forward
  */
 function findDocumentRule(text, action) {
     const normalisedText = normaliseText(text);
@@ -228,6 +237,16 @@ function findDocumentRule(text, action) {
         });
 
         if (!hasRequiredTerm) {
+            continue;
+        }
+
+        // The words of one document type turn up inside another: a remittance
+        // slip at the foot of an invoice, a PO number field on an invoice.
+        const excluded = (rule.excludeRules ?? [])
+            .filter(check => matchesDocumentCheck(text, check))
+            .length;
+
+        if (rule.excludeRules?.length && excluded >= Number(rule.excludeThreshold ?? 1)) {
             continue;
         }
 

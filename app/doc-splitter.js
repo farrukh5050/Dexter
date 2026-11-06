@@ -70,7 +70,10 @@ export function readInvoiceNumber(text, patterns = []) {
         const match = text.match(new RegExp(pattern, "i"));
 
         if (match?.[1] && /\d/.test(match[1])) {
-            return match[1].toUpperCase().trim();
+            // The fallback can capture the heading "Invoice 284844", while
+            // "Invoice No: 284844" captures just the number. Compare the
+            // same identifier on both pages, preserving codes like INVOICE-060.
+            return match[1].toUpperCase().trim().replace(/^INVOICE\s+(?=\d)/, "");
         }
     }
 
@@ -105,7 +108,7 @@ function splitIntoDocuments(pages, settings) {
             !current
             || mark.pageNumber === 1
             || (mark.invoiceNo && current.invoiceNo && mark.invoiceNo !== current.invoiceNo)
-            || (previous?.hasTotals && Boolean(mark.invoiceNo));
+            || (previous?.hasTotals && Boolean(mark.invoiceNo) && !current.invoiceNo);
 
         if (startsNewDocument) {
             groups.push({

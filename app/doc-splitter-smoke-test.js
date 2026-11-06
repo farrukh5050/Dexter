@@ -42,6 +42,30 @@ const triage = triageContainer({
 assert.equal(triage.action, "split", triage.reason);
 assert.deepEqual(triage.groups, [[1, 2], [3]], JSON.stringify(triage.groups));
 
+// ABAX puts the invoice summary and total first, followed by subscription
+// detail pages. The heading and labelled field identify the same invoice.
+const summaryFirst = triageContainer({
+    pages: Array.from({ length: 8 }, (_, index) => page(
+        index + 1,
+        index === 0
+            ? "Invoice No: 284844 Page 1 / 8 Total 1878.24"
+            : `Invoice 284844 Page ${index + 1} / 8 Subscription details`
+    ))
+}, containerRules);
+
+assert.equal(summaryFirst.action, "process", summaryFirst.reason);
+assert.deepEqual(summaryFirst.groups, [[1, 2, 3, 4, 5, 6, 7, 8]]);
+
+// A total followed by the same labelled number is also a continuation.
+const repeatedNumber = triageContainer({
+    pages: [
+        page(1, "Invoice No: AB1234 Total 42.00"),
+        page(2, "Invoice No: AB1234 Details"),
+        page(3, "Invoice No: AB1234 Details")
+    ]
+}, containerRules);
+assert.equal(repeatedNumber.action, "process", repeatedNumber.reason);
+
 // A handwritten cover note ahead of two invoices that say "Page 1/1" and
 // "£130.00 due by": the note is held back, each invoice is its own document.
 const invoice = (num, no, amount) =>
